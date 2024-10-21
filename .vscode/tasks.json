@@ -7,10 +7,14 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
-                "${workspaceFolder}/main.cpp",
-                "speak.cpp",
+                // "${workspaceFolder}/src/main.cpp",
+                "${file}",
+                // "speak.cpp",
                 "-o",
-                "${fileDirname}/${fileBasenameNoExtension}"
+                "${fileDirname}/${fileBasenameNoExtension}",
+                "-lGL",
+                "-lGLU",
+                "-lglut"
             ],
             "options": {
                 "cwd": "${fileDirname}"
