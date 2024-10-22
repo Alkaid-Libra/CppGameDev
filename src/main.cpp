@@ -17,7 +17,7 @@ void display() {
 
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
-    glutCreateWindow("Hello OpenGL123");
+    glutCreateWindow("Hello OpenGL");
     glutDisplayFunc(display);
     glutMainLoop();
     return 0;
