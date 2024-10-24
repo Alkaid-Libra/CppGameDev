@@ -3,7 +3,9 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/external/imgui",
+                "${workspaceFolder}/external/imgui/backends"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
