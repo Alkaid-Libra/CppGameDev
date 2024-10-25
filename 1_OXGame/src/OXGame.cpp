@@ -11,11 +11,8 @@
 #include <iostream>
 #include <cmath>
 
-// const int numSegments = 100; // circle segment num
-
-bool shouldDrawCircle = false;
 double mouseX, mouseY;
-
+bool game_over = false;
 
 // circle line
 void drawCircle(float centerX, float centerY, float radius, int num_segments) {
@@ -53,6 +50,16 @@ void drawLine(float startPosX, float startPosY, float endPosX, float endPosY) {
     glEnd();
 }
 
+void renderText(const char* text, ImVec2 position, ImVec4 color) {
+    // set the style of ImGui
+    ImGui::StyleColorsDark();
+
+    ImGui::SetNextWindowPos(position);
+    ImGui::Begin("Text overlay", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::SetWindowFontScale(1.5f);
+    ImGui::TextColored(color, "%s", text);
+    ImGui::End();
+}
 
 char board_data[3][3] = 
 {
@@ -62,8 +69,6 @@ char board_data[3][3] =
 };
 
 char current_piece = 'O';
-
-bool running = true;
 
 // Check the player if win
 bool checkWin(char c) {
@@ -75,7 +80,7 @@ bool checkWin(char c) {
         return true;
     if (board_data[0][0] == c && board_data[1][0] == c && board_data[2][0] == c) 
         return true;
-    if (board_data[0][1] == c && board_data[1][1] == c && board_data[1][1] == c) 
+    if (board_data[0][1] == c && board_data[1][1] == c && board_data[2][1] == c) 
         return true;
     if (board_data[0][2] == c && board_data[1][2] == c && board_data[2][2] == c) 
         return true;
@@ -112,14 +117,33 @@ void drawBoard() {
 }
 
 // draw piece
-void drawPiece() {
+void drawPiece(GLFWwindow* window) {
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+
+    int index_x = mouseX / 200;
+    int index_y = mouseY / 200;
+
+    // put piece
+    if (board_data[index_y][index_x] == '-' && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !game_over) {
+        board_data[index_y][index_x] = current_piece;
+        // switch piece type
+        if (current_piece == 'O') {
+            current_piece = 'X';
+        } else {
+            current_piece = 'O';
+        }
+    }
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
             switch(board_data[i][j]) {
                 case 'O':
+                    // set the color for circle
+                    glColor3f(1.0f, 0.0f, 0.0f);
                     drawCircle((j - 1) * 2.0 / 3.0, -(i - 1) * 2.0 / 3.0, 1.0 / 3.0, 100);
                     break;
                 case 'X':
+                    // set the color for circle
+                    glColor3f(1.0f, 1.0f, 1.0f);
                     drawLine(j * 2.0 / 3.0 - 1, -(i * 2.0 / 3.0 - 1.0 / 3.0), j * 2.0 / 3.0 - 1.0 / 3.0, -(i * 2.0 / 3.0 - 1));
                     drawLine(j * 2.0 / 3.0 - 1, -(i * 2.0 / 3.0 - 1.0), j * 2.0 / 3.0 - 1.0 / 3.0, -(i * 2.0 / 3.0 - 1.0 / 3.0));
                     break;
@@ -134,19 +158,12 @@ void drawPiece() {
 
 // draw tip
 void drawTipText() {
+    static char str[64];
+    sprintf(str, "Current Piece Type: %c", current_piece);
 
+    // render text
+    renderText(str, ImVec2(10, 10), ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
 }
-
-void renderScene() {
-    // clear the screen
-    // glClear(GL_COLOR_BUFFER_BIT);
-    if (shouldDrawCircle)
-        drawCircle(0., 0., 0.4, 100);
-
-    shouldDrawCircle = false;
-}
-
-
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -158,44 +175,32 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
 }
 
-
-
-
 void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
-
-
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
         // mouse press loc
         double xpos, ypos;
         glfwGetCursorPos(window, &xpos, &ypos);
         std::cout << xpos << '.' << ypos << std::endl;
-
-        int index_x = xpos / 200;
-        int index_y = ypos / 200;
-
-        // put piece
-        if (board_data[index_y][index_x] == '-') {
-            board_data[index_y][index_x] = current_piece;
-            // switch piece type
-            if (current_piece == 'O') {
-                current_piece = 'X';
-            } else {
-                current_piece = 'O';
-            }
-
-            shouldDrawCircle = true;
-
-            // drawCircle(0., 0., 0.4, 100);
-            // std::cout << "xxxxx"<<std::endl;
-            // drawCircle((0 - 1) * 2.0 / 3.0, (0 - 1) * 2.0 / 3.0, 1.0 / 3.0, 100);
-            drawPiece();
-            // glfwSwapBuffers(window);
-        }
     }
 }
 
 void error_callback(int error, const char* description) {
     std::cerr << "Error: " << description << std::endl;
+}
+
+void initialize(GLFWwindow* window) {
+    // 初始化 OpenGL loader，这里是 glad 
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cerr << "Failed to initialize OpenGL context" << std::endl;
+        throw std::runtime_error("Failed to initialize  Glad");
+    }
+
+    // initialize ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    // initialize GLFW and OpenGL3 of ImGui
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330"); // 适应 OpenGL 版本
 }
 
 int main() {
@@ -226,25 +231,6 @@ int main() {
     glfwMakeContextCurrent(window);
     // glfwSwapInterval(1); // enable chuizhi sync
 
-    // 初始化 OpenGL loader，这里是 glad 
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize OpenGL context" << std::endl;
-        return -1;
-    }
-
-    // initialize ImGui
-    // IMGUI_CHECKVERSION();
-    // ImGui::CreateContext();
-    // ImGuiIO& io = ImGui::GetIO(); (void)io;
-    // // set the style of ImGui
-    // ImGui::StyleColorsDark();
-    // // initialize GLFW and OpenGL3 of ImGui
-    // ImGui_ImplGlfw_InitForOpenGL(window, true);
-    // ImGui_ImplOpenGL3_Init("#version 330"); // 适应 OpenGL 版本
-
-    // set the clear color to black
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
     // set the key callback
     glfwSetKeyCallback(window, key_callback);
     // set the mouse callback
@@ -252,82 +238,100 @@ int main() {
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+    // initialize OpenGL and Imgui(imgui initial should be after mouse callback)
+    initialize(window);
+
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    // // set the style of ImGui
+    // ImGui::StyleColorsDark();
+
+    // set the clear color to black
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+    static bool showWindow = true;
+
     // 主循环
     while (!glfwWindowShouldClose(window)) {
+        // deal with events
+        glfwPollEvents();   
+
         // clear screen
         // glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
-        // glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         // start new ImGui frame
-        // ImGui_ImplOpenGL3_NewFrame();
-        // ImGui_ImplGlfw_NewFrame();
-        // ImGui::NewFrame();
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
 
-        // set the color for circle
-        glColor3f(1.0f, 0.0f, 0.0f);
-        // drawCircle(0.0f, 0.0f, 0.5f, 100);
-        // drawCircle(0., 0., 0.4, 100);
-
-        // drawCircle(0.0f, 0.0f, 0.5f);
+        // draw game
         drawBoard();
-        // drawLine(0.0f, 0.0f, 0.3f, 0.3f);
-        // renderScene();
+        drawTipText();
+        drawPiece(window);
 
-        // while (running) {
-        //     if (CheckWin('X')) {
-        //         // 创建一个简单的 ImGui 窗口
-        //         ImGui::Begin("Hello, ImGui!");
-        //         ImGui::Text("This is a simple ImGui window.");
-        //         ImGui::SliderFloat("Float slider", &io.DeltaTime, 0.0f, 1.0f);
-        //         if (ImGui::Button("Close")) {
-        //             glfwSetWindowShouldClose(window, true);
-        //         }
-        //         ImGui::End();
+        if (showWindow) {
+            if (checkWin('X')) {
+                // ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_FirstUseEver);
+                // ImGui::SetNextWindowPos(ImVec2(200, 150), ImGuiCond_FirstUseEver);
 
+                ImGui::Begin("Game Over!", &showWindow);
 
-        //     } else if (CheckWin('O')) {
-        //         ImGui::Begin("Hello, ImGui!");
-        //         ImGui::Text("This is a simple ImGui window.");
-        //         ImGui::SliderFloat("Float slider", &io.DeltaTime, 0.0f, 1.0f);
-        //         if (ImGui::Button("Close")) {
-        //             glfwSetWindowShouldClose(window, true);
-        //         }
-        //         ImGui::End();
-        //     } else if (CheckDraw()) {
-        //         ImGui::Begin("Hello, ImGui!");
-        //         ImGui::Text("This is a simple ImGui window.");
-        //         ImGui::SliderFloat("Float slider", &io.DeltaTime, 0.0f, 1.0f);
-        //         if (ImGui::Button("Close")) {
-        //             glfwSetWindowShouldClose(window, true);
-        //         }
-        //         ImGui::End();        
-        //     }
+                ImGui::SetCursorPos(ImVec2(150, 50));
+                ImGui::Text("X Win!");
 
-            // 渲染 ImGui
-            // ImGui::Render();
-            // ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+                ImGui::SetCursorPos(ImVec2(150, 75));
+                if (ImGui::Button("Close")) {
+                    glfwSetWindowShouldClose(window, true);
+                }
+                ImGui::End();
 
-            // drawBoard();
-            // drawPiece();
-            // drawTipText();
+                game_over = true;
+            } else if (checkWin('O')) {
 
-            // int display_w, display_h;
-            // glfwGetFramebufferSize(window, &display_w, &display_h);
-            // glViewport(0, 0, display_w, display_h);
-            // glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
+                ImGui::Begin("Game Over!", &showWindow);
 
-        // }
+                ImGui::SetCursorPos(ImVec2(150, 50));
+                ImGui::Text("O Win!");
+
+                ImGui::SetCursorPos(ImVec2(150, 75));
+                if (ImGui::Button("Close")) {
+                    glfwSetWindowShouldClose(window, true);
+                }
+                ImGui::End();
+
+                game_over = true;
+            } else if (checkDraw()) {
+                ImGui::Begin("Game Over!", &showWindow);
+
+                ImGui::SetCursorPos(ImVec2(150, 50));
+                ImGui::Text("Draw!");
+
+                ImGui::SetCursorPos(ImVec2(150, 75));
+                if (ImGui::Button("Close")) {
+                    glfwSetWindowShouldClose(window, true);
+                }
+                ImGui::End();
+
+                game_over = true;
+            }
+        }
+
+        // int display_w, display_h;
+        // glfwGetFramebufferSize(window, &display_w, &display_h);
+        // glViewport(0, 0, display_w, display_h);
+
+        // 渲染 ImGui
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // 交换缓冲区
         glfwSwapBuffers(window);
-        // deal with events
-        glfwPollEvents();
     }
 
     // 清理
-    // ImGui_ImplOpenGL3_Shutdown();
-    // ImGui_ImplGlfw_Shutdown();
-    // ImGui::DestroyContext();
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
     glfwDestroyWindow(window);
     glfwTerminate();
