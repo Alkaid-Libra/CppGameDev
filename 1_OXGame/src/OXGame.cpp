@@ -10,6 +10,8 @@
 
 #include <iostream>
 #include <cmath>
+#include <chrono>
+#include <unistd.h>
 
 double mouseX, mouseY;
 bool game_over = false;
@@ -252,6 +254,9 @@ int main() {
 
     // 主循环
     while (!glfwWindowShouldClose(window)) {
+        // should be sleep when while is too fast, but glfw realize it
+        auto startTime = std::chrono::steady_clock::now(); // time start
+
         // deal with events
         glfwPollEvents();   
 
@@ -326,6 +331,13 @@ int main() {
 
         // 交换缓冲区
         glfwSwapBuffers(window);
+
+        auto endTime = std::chrono::steady_clock::now(); // time end
+        double duration_second = std::chrono::duration<double>(endTime - startTime).count(); // compute time duration(s)
+        // std::cout << "Total Time: " << duration_second << "s" << std::endl; // compute result
+        if (duration_second < 1000 / 60) {
+            sleep(1000 / 60 - duration_second);
+        }
     }
 
     // 清理
