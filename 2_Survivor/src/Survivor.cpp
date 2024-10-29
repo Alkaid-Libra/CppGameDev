@@ -20,10 +20,11 @@
 double mouseX, mouseY;
 bool game_over = false;
 
+glm::vec3 characterPosition(0.0f, 0.0f, 0.0f);
 
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 1280;
+const unsigned int SCR_HEIGHT = 720;
 
 const char *vertexShaderSource = "#version 330 core\n"
     "layout (location = 0) in vec3 aPos;\n"
@@ -43,11 +44,39 @@ const char *fragmentShaderSource = "#version 330 core\n"
     "   FragColor = texture(texture1, TexCoord);\n"
     "}\n\0";
 
+const char *vertexShaderCharacterSource = R"(
+#version 330 core
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec2 aTexCoord;
+
+out vec2 TexCoord;
+
+uniform mat4 model;
+
+void main() {
+    gl_Position = model * vec4(aPos, 1.0);
+    TexCoord = aTexCoord;
+}
+)";
+const char *fragmentShaderCharacterSource = R"(
+#version 330 core
+out vec4 FragColor;
+
+in vec2 TexCoord;
+
+uniform sampler2D texture1;
+
+void main() {
+    FragColor = texture(texture1, TexCoord);
+}
+)";
+
 
 // load and create a texture
 GLuint loadTexture(const char* filePath) {
     // load image
     int width, height, channels;
+    stbi_set_flip_vertically_on_load(true);
     unsigned char *data = stbi_load(filePath, &width, &height, &channels, 0);
 
     if (data == nullptr) {
@@ -77,6 +106,18 @@ GLuint loadTexture(const char* filePath) {
     return texture;
 }
 
+
+void loadAnimation(int totalFrames, GLuint* img_player_left, GLuint* img_player_right) {
+    for (int i = 0; i < totalFrames; i++) {
+        std::string path = std::string(WORKSPACE_DIR) + "/resources/img/player_left_" + std::to_string(i) + ".png";
+        img_player_left[i] = loadTexture(path.c_str());
+    }
+    for (int i = 0; i < totalFrames; i++) {
+        std::string path = std::string(WORKSPACE_DIR) + "/resources/img/player_right_" + std::to_string(i) + ".png";
+        img_player_right[i] = loadTexture(path.c_str());
+    }
+}
+
 void renderText(const char* text, ImVec2 position, ImVec4 color) {
     // set the style of ImGui
     ImGui::StyleColorsDark();
@@ -91,7 +132,18 @@ void renderText(const char* text, ImVec2 position, ImVec4 color) {
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window) {
-
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        characterPosition.y += 0.01f;
+    }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        characterPosition.y -= 0.01f;
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        characterPosition.x -= 0.01f;
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        characterPosition.x += 0.01f;
+    }
 }
 
 // glfw: whenever the window size changed this callback function executes
@@ -113,7 +165,7 @@ void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
         // mouse press loc
         double xpos, ypos;
         glfwGetCursorPos(window, &xpos, &ypos);
-        std::cout << xpos << '.' << ypos << std::endl;
+        std::cout << xpos << ',' << ypos << std::endl;
     }
 }
 
@@ -180,6 +232,12 @@ int main() {
     // // set the style of ImGui
     // ImGui::StyleColorsDark();
 
+    // set OpenGL state
+    // ----------------
+    // enable blend
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     // build and compile our shader zprogram
     // -------------------------------------
     // vertex shader
@@ -219,7 +277,6 @@ int main() {
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-
     // set up vertex data(and buffers) and configure vertex attributes 
     // ---------------------------------------------------------------
     float vertices[] = {
@@ -255,9 +312,9 @@ int main() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    // set 0 unbind
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    // // set 0 unbind
+    // glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // glBindVertexArray(0);
 
     static bool showWindow = true;
 
@@ -269,10 +326,71 @@ int main() {
     // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
     // -------------------------------------------------------------------------------------------
     // don't forget to activate/use the shader before setting uniforms!
-    
+    // ourShader.use();
     // either set it manually like so:
-
+    // glUniform1i(glGetUniformLocation(ourshader.ID, "texture1"), 0);
     // or set it via the texture class
+    // ourShader.setInt("texture2", 1);
+
+    // Set animotion frame
+    // ----------------------------
+    int idx_current_anim = 0;
+    const int PLAYER_ANIM_NUM = 6;
+    GLuint img_player_left[PLAYER_ANIM_NUM];
+    GLuint img_player_right[PLAYER_ANIM_NUM];
+
+    loadAnimation(PLAYER_ANIM_NUM, img_player_left, img_player_right);
+
+    // build and compile shader
+    // vertex shader
+    GLuint vertexShaderCharacter = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShaderCharacter, 1, &vertexShaderCharacterSource, nullptr);
+    glCompileShader(vertexShaderCharacter);
+    // fragment shader
+    GLuint fragmentShaderCharacter = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShaderCharacter, 1, &fragmentShaderCharacterSource, nullptr);
+    glCompileShader(fragmentShaderCharacter);
+    // link shaders
+    GLuint shaderCharacterProgram = glCreateProgram();
+    glAttachShader(shaderCharacterProgram, vertexShaderCharacter);
+    glAttachShader(shaderCharacterProgram, fragmentShaderCharacter);
+    glLinkProgram(shaderCharacterProgram);
+    // delete shader
+    glDeleteShader(vertexShaderCharacter);
+    glDeleteShader(fragmentShaderCharacter);
+
+    float verticesCharacter[] = {
+    // 位置             // 纹理坐标
+    -0.0625f, -0.1111f, 0.0f,  0.0f, 0.0f,  // 左下
+     0.0625f, -0.1111f, 0.0f,  1.0f, 0.0f,  // 右下
+     0.0625f,  0.1111f, 0.0f,  1.0f, 1.0f,  // 右上
+    -0.0625f,  0.1111f, 0.0f,  0.0f, 1.0f   // 左上
+    };
+    unsigned int indicesCharacter[] = {
+        0, 1, 2, // 第一个三角形
+        0, 2, 3  // 第二个三角形
+    };
+    unsigned int VAO1, VBO1, EBO1;
+    glGenVertexArrays(1, &VAO1);
+    glGenBuffers(1, &VBO1);
+    glGenBuffers(1, &EBO1);
+
+    glBindVertexArray(VAO1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO1);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verticesCharacter), verticesCharacter, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO1);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indicesCharacter), indicesCharacter, GL_STATIC_DRAW);
+
+    // position attributes
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // texture coordinate attributes
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+
 
 
     // 主循环
@@ -281,9 +399,17 @@ int main() {
         // poll IO events(keys pressed/released, mouse moved etc.)
         glfwPollEvents();   
 
+        // Sequential frames animal
+        static int counter = 0;
+        if (++counter % 5 == 0) {
+            idx_current_anim++;
+        }
+        // let anim looping
+        idx_current_anim = idx_current_anim % PLAYER_ANIM_NUM;
+
         // input
         // ------
-
+        processInput(window);
 
         // render
         // ------
@@ -297,12 +423,22 @@ int main() {
         glBindTexture(GL_TEXTURE_2D, texture);
 
         // set the texture value in the shader
-        
+        // ourShader.setFloat("", );
 
         // render container
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
 
+        glUseProgram(shaderCharacterProgram);
+        glBindTexture(GL_TEXTURE_2D, img_player_left[idx_current_anim]);
+        glBindVertexArray(VAO1);
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, characterPosition);
+        GLuint modelLoc = glGetUniformLocation(shaderCharacterProgram, "model");
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
 
         // start new ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
