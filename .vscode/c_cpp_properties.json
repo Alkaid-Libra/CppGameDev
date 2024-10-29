@@ -5,9 +5,12 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/external/imgui",
-                "${workspaceFolder}/external/imgui/backends"
+                "${workspaceFolder}/external/imgui/backends",
+                "${workspaceFolder}/external/imageloader"
             ],
-            "defines": [],
+            "defines": [
+                "WORKSPACE_DIR=\"${workspaceFolder}\""
+            ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",
             "cppStandard": "gnu++17",
