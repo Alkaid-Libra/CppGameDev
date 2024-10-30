@@ -49,7 +49,10 @@ set(SOURCES
 )
 
 # add include directory
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../external/imageloader)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../external/imageloader
+    ${CMAKE_CURRENT_SOURCE_DIR}/../includes
+    ${CMAKE_CURRENT_SOURCE_DIR}/includes
+)
 
 # 添加可执行文件
 add_executable(2_Survivor ${SOURCES})

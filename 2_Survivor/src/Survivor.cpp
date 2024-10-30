@@ -14,63 +14,29 @@
 #include <unistd.h>
 #include <string>
 
+#include "animation.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+#include "shader.h"
+
 
 double mouseX, mouseY;
 bool game_over = false;
 
-glm::vec3 characterPosition(0.0f, 0.0f, 0.0f);
+glm::vec3 player_pos(0.0f, 0.0f, 0.0f);
+const float PLAYER_SPEED = 0.01;
+
+const int PLAYER_WIDTH = 80;
+const int PLAYER_HEIGHT = 80;
+const int SHADOW_WIDTH = 32;
+
+bool facing_left = false;
 
 // settings
 const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
-
-const char *vertexShaderSource = "#version 330 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "layout (location = 1) in vec2 aTexCoord;\n"
-    "out vec2 TexCoord;\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = vec4(aPos, 1.0);\n"
-    "   TexCoord = aTexCoord;\n"
-    "}\0";
-const char *fragmentShaderSource = "#version 330 core\n"
-    "out vec4 FragColor;\n"
-    "in vec2 TexCoord;\n"
-    "uniform sampler2D texture1;\n"
-    "void main()\n"
-    "{\n"
-    "   FragColor = texture(texture1, TexCoord);\n"
-    "}\n\0";
-
-const char *vertexShaderCharacterSource = R"(
-#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec2 aTexCoord;
-
-out vec2 TexCoord;
-
-uniform mat4 model;
-
-void main() {
-    gl_Position = model * vec4(aPos, 1.0);
-    TexCoord = aTexCoord;
-}
-)";
-const char *fragmentShaderCharacterSource = R"(
-#version 330 core
-out vec4 FragColor;
-
-in vec2 TexCoord;
-
-uniform sampler2D texture1;
-
-void main() {
-    FragColor = texture(texture1, TexCoord);
-}
-)";
-
 
 // load and create a texture
 GLuint loadTexture(const char* filePath) {
@@ -79,33 +45,32 @@ GLuint loadTexture(const char* filePath) {
     stbi_set_flip_vertically_on_load(true);
     unsigned char *data = stbi_load(filePath, &width, &height, &channels, 0);
 
+    // create texture
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
     if (data == nullptr) {
         std::cerr << "Failed to load texture: " << filePath << std::endl;
-        return 0;
+        stbi_image_free(data);
+    } else {
+        // set the texture wrapping parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); // horizontal wrapping method
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); // vertical wrapping method
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); // min filter method
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // magnify filter method
+
+        // generate texture
+        GLenum format = (channels == 4) ? GL_RGBA : GL_RGB; // format from channels nums
+        // target texture|texture mipmap level|texture internal format|texture width and height|border(usually 0)|pixel data format|pixel data type|texture data
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        stbi_image_free(data);
     }
 
-    // create texture
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    // set the texture wrapping parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); // horizontal wrapping method
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); // vertical wrapping method
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); // min filter method
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // magnify filter method
-
-    // generate texture
-    GLenum format = (channels == 4) ? GL_RGBA : GL_RGB; // format from channels nums
-    // target texture|texture mipmap level|texture internal format|texture width and height|border(usually 0)|pixel data format|pixel data type|texture data
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    stbi_image_free(data);
-
-    return texture;
+    return textureID;
 }
-
 
 void loadAnimation(int totalFrames, GLuint* img_player_left, GLuint* img_player_right) {
     for (int i = 0; i < totalFrames; i++) {
@@ -116,6 +81,29 @@ void loadAnimation(int totalFrames, GLuint* img_player_left, GLuint* img_player_
         std::string path = std::string(WORKSPACE_DIR) + "/resources/img/player_right_" + std::to_string(i) + ".png";
         img_player_right[i] = loadTexture(path.c_str());
     }
+}
+
+
+
+void drawPlayer(Shader& shader, int delta)
+{
+    // int pos_shadow_x = player_pos.x + (PLAYER_WIDTH / 2 - SHADOW_WIDTH / 2);
+    // static bool facing_left = false;
+    // if (dir_x < 0)
+    //     facing_left = true;
+    // else if (dir_x > 0)
+    //     facing_left = false;
+
+
+    //     if (facing_left)
+    //     glBindTexture(GL_TEXTURE_2D, img_player_left[idx_current_anim]);
+    // else
+    //     glBindTexture(GL_TEXTURE_2D, img_player_right[idx_current_anim]);
+
+    if (facing_left)
+        anim_left_player.play(shader, player_pos, delta);
+    else
+        anim_right_player.play(shader, player_pos, delta);
 }
 
 void renderText(const char* text, ImVec2 position, ImVec4 color) {
@@ -133,16 +121,18 @@ void renderText(const char* text, ImVec2 position, ImVec4 color) {
 // ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-        characterPosition.y += 0.01f;
+        player_pos.y += PLAYER_SPEED;
     }
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-        characterPosition.y -= 0.01f;
+        player_pos.y -= PLAYER_SPEED;
     }
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        characterPosition.x -= 0.01f;
+        player_pos.x -= PLAYER_SPEED;
+        facing_left = true;
     }
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        characterPosition.x += 0.01f;
+        player_pos.x += PLAYER_SPEED;
+        facing_left = false;
     }
 }
 
@@ -240,42 +230,9 @@ int main() {
 
     // build and compile our shader zprogram
     // -------------------------------------
-    // vertex shader
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
-    glCompileShader(vertexShader);
-    // check for shader compile errors
-    int success;
-    char infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-    // fragment shader
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
-    glCompileShader(fragmentShader);
-    // check for shader compile errors
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-    // link shaders
-    GLuint shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    // check for linking errors
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-    }
-    // delete shader
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    std::string backgroundVertShaderPath = std::string(WORKSPACE_DIR) + "/shaders/background.vert";
+    std::string backgroundFragShaderPath = std::string(WORKSPACE_DIR) + "/shaders/background.frag";
+    Shader backgroundShader(backgroundVertShaderPath.c_str(), backgroundFragShaderPath.c_str());
 
     // set up vertex data(and buffers) and configure vertex attributes 
     // ---------------------------------------------------------------
@@ -332,7 +289,7 @@ int main() {
     // or set it via the texture class
     // ourShader.setInt("texture2", 1);
 
-    // Set animotion frame
+    // Set animation frame
     // ----------------------------
     int idx_current_anim = 0;
     const int PLAYER_ANIM_NUM = 6;
@@ -343,24 +300,12 @@ int main() {
 
     // build and compile shader
     // vertex shader
-    GLuint vertexShaderCharacter = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShaderCharacter, 1, &vertexShaderCharacterSource, nullptr);
-    glCompileShader(vertexShaderCharacter);
-    // fragment shader
-    GLuint fragmentShaderCharacter = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShaderCharacter, 1, &fragmentShaderCharacterSource, nullptr);
-    glCompileShader(fragmentShaderCharacter);
-    // link shaders
-    GLuint shaderCharacterProgram = glCreateProgram();
-    glAttachShader(shaderCharacterProgram, vertexShaderCharacter);
-    glAttachShader(shaderCharacterProgram, fragmentShaderCharacter);
-    glLinkProgram(shaderCharacterProgram);
-    // delete shader
-    glDeleteShader(vertexShaderCharacter);
-    glDeleteShader(fragmentShaderCharacter);
+    std::string characterVertShaderPath = std::string(WORKSPACE_DIR) + "/shaders/character.vert";
+    std::string characterFragShaderPath = std::string(WORKSPACE_DIR) + "/shaders/character.frag";
+    Shader characterShader(characterVertShaderPath.c_str(), characterFragShaderPath.c_str());
 
     float verticesCharacter[] = {
-    // 位置             // 纹理坐标
+    // 位置                     // 纹理坐标
     -0.0625f, -0.1111f, 0.0f,  0.0f, 0.0f,  // 左下
      0.0625f, -0.1111f, 0.0f,  1.0f, 0.0f,  // 右下
      0.0625f,  0.1111f, 0.0f,  1.0f, 1.0f,  // 右上
@@ -391,6 +336,8 @@ int main() {
     glEnableVertexAttribArray(1);
 
 
+    Animation anim_left_player("resources/img/player_left_%d.png", 6, 45);
+    Animation anim_right_player("resources/img/player_right_%d.png", 6, 45);
 
 
     // 主循环
@@ -418,25 +365,27 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         // use shaderProgram
-        glUseProgram(shaderProgram);
+        backgroundShader.use();
         // bind texture on corresponding texture units
         glBindTexture(GL_TEXTURE_2D, texture);
-
-        // set the texture value in the shader
-        // ourShader.setFloat("", );
 
         // render container
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
-        glUseProgram(shaderCharacterProgram);
-        glBindTexture(GL_TEXTURE_2D, img_player_left[idx_current_anim]);
+        characterShader.use();
+        if (facing_left)
+            glBindTexture(GL_TEXTURE_2D, img_player_left[idx_current_anim]);
+        else
+            glBindTexture(GL_TEXTURE_2D, img_player_right[idx_current_anim]);
+
         glBindVertexArray(VAO1);
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, characterPosition);
-        GLuint modelLoc = glGetUniformLocation(shaderCharacterProgram, "model");
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        // drawPlayer(characterShader, 1000 / 144);
+        // glm::mat4 model = glm::mat4(1.0f);
+        // model = glm::translate(model, player_pos);
+        // // set the texture value in the shader
+        // characterShader.setMat4("model", model);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 

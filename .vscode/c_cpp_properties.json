@@ -6,7 +6,8 @@
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/external/imgui",
                 "${workspaceFolder}/external/imgui/backends",
-                "${workspaceFolder}/external/imageloader"
+                "${workspaceFolder}/external/imageloader",
+                "${workspaceFolder}/2_Survivor/includes"
             ],
             "defines": [
                 "WORKSPACE_DIR=\"${workspaceFolder}\""
