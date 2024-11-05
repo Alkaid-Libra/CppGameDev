@@ -14,8 +14,6 @@
 #include <unistd.h>
 #include <string>
 
-#include "animation.h"
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -81,29 +79,6 @@ void loadAnimation(int totalFrames, GLuint* img_player_left, GLuint* img_player_
         std::string path = std::string(WORKSPACE_DIR) + "/resources/img/player_right_" + std::to_string(i) + ".png";
         img_player_right[i] = loadTexture(path.c_str());
     }
-}
-
-
-
-void drawPlayer(Shader& shader, int delta)
-{
-    // int pos_shadow_x = player_pos.x + (PLAYER_WIDTH / 2 - SHADOW_WIDTH / 2);
-    // static bool facing_left = false;
-    // if (dir_x < 0)
-    //     facing_left = true;
-    // else if (dir_x > 0)
-    //     facing_left = false;
-
-
-    //     if (facing_left)
-    //     glBindTexture(GL_TEXTURE_2D, img_player_left[idx_current_anim]);
-    // else
-    //     glBindTexture(GL_TEXTURE_2D, img_player_right[idx_current_anim]);
-
-    if (facing_left)
-        anim_left_player.play(shader, player_pos, delta);
-    else
-        anim_right_player.play(shader, player_pos, delta);
 }
 
 void renderText(const char* text, ImVec2 position, ImVec4 color) {
@@ -336,8 +311,16 @@ int main() {
     glEnableVertexAttribArray(1);
 
 
-    Animation anim_left_player("resources/img/player_left_%d.png", 6, 45);
-    Animation anim_right_player("resources/img/player_right_%d.png", 6, 45);
+    // load shadow
+    std::string imgPath_playerShadow = std::string(WORKSPACE_DIR) + "/resources/img/shadow_player.png";
+    GLuint texture_playerShadow = loadTexture(imgPath_playerShadow.c_str());
+
+    // characterShader.use();
+    // characterShader.setInt("texture1", 0);
+    // characterShader.setInt("texture2", 1);
+    // backgroundShader.use();
+    // backgroundShader.setInt("texture1", 2);
+
 
 
     // 主循环
@@ -367,6 +350,7 @@ int main() {
         // use shaderProgram
         backgroundShader.use();
         // bind texture on corresponding texture units
+        // glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, texture);
 
         // render container
@@ -375,17 +359,21 @@ int main() {
         glBindVertexArray(0);
 
         characterShader.use();
+        // glActiveTexture(GL_TEXTURE0);
+        // glBindTexture(GL_TEXTURE_2D, texture_playerShadow);
+        // glActiveTexture(GL_TEXTURE1);
         if (facing_left)
             glBindTexture(GL_TEXTURE_2D, img_player_left[idx_current_anim]);
         else
             glBindTexture(GL_TEXTURE_2D, img_player_right[idx_current_anim]);
 
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, player_pos);
+        // set the texture value in the shader
+        characterShader.setMat4("model", model);
+
+        // characterShader.use();
         glBindVertexArray(VAO1);
-        // drawPlayer(characterShader, 1000 / 144);
-        // glm::mat4 model = glm::mat4(1.0f);
-        // model = glm::translate(model, player_pos);
-        // // set the texture value in the shader
-        // characterShader.setMat4("model", model);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
