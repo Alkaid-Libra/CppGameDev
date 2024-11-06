@@ -13,12 +13,13 @@
 // #include <chrono>
 #include <unistd.h>
 #include <string>
+#include <time.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 #include "shader.h"
-
+#include "enemy.h"
 
 double mouseX, mouseY;
 bool game_over = false;
@@ -32,9 +33,83 @@ const int SHADOW_WIDTH = 32;
 
 bool facing_left = false;
 
+struct timespec current_time;
+
+
 // settings
 const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
+
+// // circle whole
+// void setupCircleVAO(float x, float y, float radius, int segments, glm::vec3 fillColor, glm::vec3 borderColor, GLuint& VAO)
+// {
+//     // 生成顶点和颜色数据
+//     std::vector<glm::vec2> vertices;
+//     std::vector<glm::vec3> colors;
+
+//     // 中心点
+//     vertices.push_back(glm::vec2(x, y));
+//     colors.push_back(fillColor); // 内部颜色
+
+//     // 圆周上的点（边缘）
+//     for (int i = 0; i <= segments; ++i)
+//     {
+//         float angle = 2.0f * 3.14159265359f * i / segments;
+//         float cx = x + radius * cos(angle);
+//         float cy = y + radius * sin(angle);
+//         vertices.push_back(glm::vec2(cx, cy));
+//         colors.push_back(borderColor); // 边缘颜色
+//     }
+
+//     // 设置VAO、VBO、颜色VBO等
+//     GLuint VBO, colorVBO;
+//     glGenVertexArrays(1, &VAO);
+//     glGenBuffers(1, &VBO);
+//     glGenBuffers(1, &colorVBO);
+
+//     glBindVertexArray(VAO);
+
+//     // 设置顶点数据
+//     glBindBuffer(GL_ARRAY_BUFFER, VBO);
+//     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(), GL_STATIC_DRAW);
+//     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
+//     glEnableVertexAttribArray(0);
+
+//     // 设置颜色数据
+//     glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+//     glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(glm::vec3), colors.data(), GL_STATIC_DRAW);
+//     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+//     glEnableVertexAttribArray(1);
+
+//     // glBindBuffer(GL_ARRAY_BUFFER, 0);
+//     // glBindVertexArray(0);
+// }
+
+
+
+void tryGenerateEnemy(std::vector<Enemy*>& enemy_list)
+{
+    const int interval = 100;
+    static int counter = 0;
+    if ((++counter) % interval == 0)// && enemy_list.size() < 10)
+        enemy_list.push_back(new Enemy());
+}
+// update bullet location
+// void updateBullets(std::vector<Bullet>& bullet_list, const glm::vec3& player_pos)
+// {
+//     const float radial_speed = 0.00045;
+//     const float tangent_speed = 0.00055;
+//     float radian_interval = 2 * 3.14159 / bullet_list.size();
+//     clock_gettime(CLOCK_MONOTONIC, &current_time);
+//     // std::cout << current_time.tv_nsec << std::endl;
+//     float radius = 0.100 + 0.25 * sin(current_time.tv_nsec * radial_speed);
+//     for (int i = 0; i < bullet_list.size(); i++)
+//     {
+//         float radian = current_time.tv_nsec * tangent_speed + radian_interval * i;
+//         bullet_list[i].position.x = player_pos.x + (int)(radius * sin(radian));
+//         bullet_list[i].position.y = player_pos.y + (int)(radius * cos(radian));
+//     }
+// }
 
 // load and create a texture
 GLuint loadTexture(const char* filePath) {
@@ -70,13 +145,13 @@ GLuint loadTexture(const char* filePath) {
     return textureID;
 }
 
-void loadAnimation(int totalFrames, GLuint* img_player_left, GLuint* img_player_right) {
+void loadAnimation(int totalFrames, GLuint* img_player_left, GLuint* img_player_right, std::string type) {
     for (int i = 0; i < totalFrames; i++) {
-        std::string path = std::string(WORKSPACE_DIR) + "/resources/img/player_left_" + std::to_string(i) + ".png";
+        std::string path = std::string(WORKSPACE_DIR) + "/resources/img/" + type + "_left_" + std::to_string(i) + ".png";
         img_player_left[i] = loadTexture(path.c_str());
     }
     for (int i = 0; i < totalFrames; i++) {
-        std::string path = std::string(WORKSPACE_DIR) + "/resources/img/player_right_" + std::to_string(i) + ".png";
+        std::string path = std::string(WORKSPACE_DIR) + "/resources/img/" + type + "_right_" + std::to_string(i) + ".png";
         img_player_right[i] = loadTexture(path.c_str());
     }
 }
@@ -115,7 +190,7 @@ void processInput(GLFWwindow* window) {
 // ----------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     // make sure the viewport matches the new window dimensions;
-    // note that width and height will be significantly larget than specified on retina displays
+    // note that width and height will be significantly larger than specified on retina displays
     glViewport(0, 0, width, height);
 }
 
@@ -166,16 +241,7 @@ int main() {
 
     // set the context as the current window
     glfwMakeContextCurrent(window);
-    // glfwSwapInterval(1); // enable chuizhi sync
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
-    // IO device callback
-    // --------------------
-    // set the key callback
-    glfwSetKeyCallback(window, key_callback);
-    // set the mouse callback
-    glfwSetMouseButtonCallback(window, mouse_callback);
-
+    glfwSwapInterval(1); // enable chuizhi sync
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -184,6 +250,15 @@ int main() {
         std::cerr << "Failed to initialize OpenGL context" << std::endl;
         throw std::runtime_error("Failed to initialize  Glad");
     }
+
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    // IO device callback
+    // --------------------
+    // set the key callback
+    glfwSetKeyCallback(window, key_callback);
+    // set the mouse callback
+    glfwSetMouseButtonCallback(window, mouse_callback);
 
     // ImGui:initialize ImGui(imgui initial should be after mouse callback)
     // -------------------------------------------------------------------
@@ -249,6 +324,7 @@ int main() {
     // glBindVertexArray(0);
 
     static bool showWindow = true;
+    static bool freezeScreen = false;
 
     // load and create texture
     // -----------------------
@@ -271,7 +347,7 @@ int main() {
     GLuint img_player_left[PLAYER_ANIM_NUM];
     GLuint img_player_right[PLAYER_ANIM_NUM];
 
-    loadAnimation(PLAYER_ANIM_NUM, img_player_left, img_player_right);
+    loadAnimation(PLAYER_ANIM_NUM, img_player_left, img_player_right, "player");
 
     // build and compile shader
     // vertex shader
@@ -311,9 +387,9 @@ int main() {
     glEnableVertexAttribArray(1);
 
 
-    // load shadow
-    std::string imgPath_playerShadow = std::string(WORKSPACE_DIR) + "/resources/img/shadow_player.png";
-    GLuint texture_playerShadow = loadTexture(imgPath_playerShadow.c_str());
+    // // load shadow
+    // std::string imgPath_playerShadow = std::string(WORKSPACE_DIR) + "/resources/img/shadow_player.png";
+    // GLuint texture_playerShadow = loadTexture(imgPath_playerShadow.c_str());
 
     // characterShader.use();
     // characterShader.setInt("texture1", 0);
@@ -321,13 +397,39 @@ int main() {
     // backgroundShader.use();
     // backgroundShader.setInt("texture1", 2);
 
+    // Enemy
+    std::vector<Enemy*> enemy_list;
+    const int ENEMY_ANIM_NUM = 6;
+    GLuint img_enemy_left[ENEMY_ANIM_NUM];
+    GLuint img_enemy_right[ENEMY_ANIM_NUM];
+    loadAnimation(ENEMY_ANIM_NUM, img_enemy_left, img_enemy_right, "enemy");
+
+    // Bullet
+    std::vector<Bullet> bullet_list(3);
+    // 使用着色器并绘制圆形
+    // std::string basicTriangleVertShaderPath = std::string(WORKSPACE_DIR) + "/shaders/basicTriangle.vert";
+    // std::string basicTriangleFragShaderPath = std::string(WORKSPACE_DIR) + "/shaders/basicTriangle.frag";
+
+    // Shader basicTriangleShader(basicTriangleVertShaderPath.c_str(), basicTriangleFragShaderPath.c_str());
+    // basicTriangleShader.use();
+    // GLuint circleVAO, circleVBO;
+    // setupCircleVAO(VAO)
+    // glBindVertexArray(VAO);
+    // glDrawArrays(GL_TRIANGLE_FAN, 0, vertices.size());
+    // glBindVertexArray(0);
+
+    // // 清理
+    // glDeleteBuffers(1, &VBO);
+    // glDeleteBuffers(1, &colorVBO);
+    // glDeleteVertexArrays(1, &VAO);
+
 
 
     // 主循环
     while (!glfwWindowShouldClose(window)) {
         // deal with events
         // poll IO events(keys pressed/released, mouse moved etc.)
-        glfwPollEvents();   
+        glfwPollEvents();  
 
         // Sequential frames animal
         static int counter = 0;
@@ -341,56 +443,101 @@ int main() {
         // ------
         processInput(window);
 
-        // render
-        // ------
-        // clear screen
-        glClearColor(0.45f, 0.55f, 0.60f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        if (!freezeScreen || !showWindow)
+        {
+            // render
+            // ------
+            // clear screen
+            glClearColor(0.45f, 0.55f, 0.60f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
 
-        // use shaderProgram
-        backgroundShader.use();
-        // bind texture on corresponding texture units
-        // glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, texture);
+            // use shaderProgram
+            backgroundShader.use();
+            // bind texture on corresponding texture units
+            // glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, texture);
 
-        // render container
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+            // render container
+            glBindVertexArray(VAO);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            glBindVertexArray(0);
 
-        characterShader.use();
-        // glActiveTexture(GL_TEXTURE0);
-        // glBindTexture(GL_TEXTURE_2D, texture_playerShadow);
-        // glActiveTexture(GL_TEXTURE1);
-        if (facing_left)
-            glBindTexture(GL_TEXTURE_2D, img_player_left[idx_current_anim]);
-        else
-            glBindTexture(GL_TEXTURE_2D, img_player_right[idx_current_anim]);
+            characterShader.use();
+            glActiveTexture(GL_TEXTURE0);
+            // glBindTexture(GL_TEXTURE_2D, texture_playerShadow);
+            // glActiveTexture(GL_TEXTURE1);
+            if (facing_left)
+                glBindTexture(GL_TEXTURE_2D, img_player_left[idx_current_anim]);
+            else
+                glBindTexture(GL_TEXTURE_2D, img_player_right[idx_current_anim]);
 
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, player_pos);
-        // set the texture value in the shader
-        characterShader.setMat4("model", model);
+            if (player_pos.x < -1.0f) player_pos.x = -1.0f;
+            if (player_pos.x > 1.0f) player_pos.x = 1.0f;
+            if (player_pos.y < -1.0f) player_pos.y = -1.0f;
+            if (player_pos.y > 1.0f) player_pos.y = 1.0f;
 
-        // characterShader.use();
-        glBindVertexArray(VAO1);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, player_pos);
+            // set the texture value in the shader
+            characterShader.setMat4("model", model);
+
+            glBindVertexArray(VAO1);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            glBindVertexArray(0);
+
+            // draw game
+
+            // enemy
+            tryGenerateEnemy(enemy_list);
+            for (Enemy* enemy : enemy_list)
+            {
+                if (enemy->facing_left)
+                    glBindTexture(GL_TEXTURE_2D, img_enemy_left[idx_current_anim]);
+                else 
+                    glBindTexture(GL_TEXTURE_2D, img_enemy_right[idx_current_anim]);
+
+                enemy->move(player_pos);
+                glm::mat4 model_enemy = glm::mat4(1.0f);
+                model_enemy = glm::translate(model_enemy, enemy->position);
+                characterShader.setMat4("model", model_enemy);
+                glBindVertexArray(VAO1);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                glBindVertexArray(0);
+            }
+
+            // bullet
+            // updateBullets(bullet_list, player_pos);
+            // for (const Bullet& bullet : bullet_list)
+            // {
+            //     // drawCircle(0.0, 0.0, 0.05, 100, glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0));
+            // }
+
+        }         
 
         // start new ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // draw game
+        // check if collision
+        for (Enemy* enemy : enemy_list)
+        {
+            if (enemy->checkPlayerCollision(player_pos) && showWindow)
+            {
+                ImGui::Begin("Game Over!", &showWindow);
 
+                ImGui::SetCursorPos(ImVec2(150, 50));
+                ImGui::Text("Press 1 and Check CG");
 
-        if (showWindow) {
+                ImGui::SetCursorPos(ImVec2(150, 75));
+                if (ImGui::Button("Close")) {
+                    glfwSetWindowShouldClose(window, true);
+                }
+                ImGui::End();
+
+                freezeScreen = true;
+            }
         }
-
-        // int display_w, display_h;
-        // glfwGetFramebufferSize(window, &display_w, &display_h);
-        // glViewport(0, 0, display_w, display_h);
 
         // 渲染 ImGui
         ImGui::Render();
@@ -400,7 +547,6 @@ int main() {
         // ------------------
         // 交换缓冲区
         glfwSwapBuffers(window);
-
     }
 
     // clean up
@@ -409,6 +555,10 @@ int main() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
+
+    glDeleteVertexArrays(1, &VAO1);
+    glDeleteBuffers(1, &VBO1);
+    glDeleteBuffers(1, &EBO1);
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
