@@ -70,7 +70,10 @@
         "cinttypes": "cpp",
         "typeindex": "cpp",
         "typeinfo": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "matrixd": "cpp",
+        "matrixf": "cpp",
+        "bufferobject": "cpp"
     }
 
 }

@@ -13,7 +13,7 @@
 #include <chrono>
 #include <unistd.h>
 #include <string>
-#include <time.h>
+// #include <time.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -24,6 +24,8 @@
 
 double mouseX, mouseY;
 bool game_over = false;
+bool button_pressed = false;
+bool inRange = false;
 
 glm::vec3 player_pos(0.0f, 0.0f, 0.0f);
 const float PLAYER_SPEED = 0.01;
@@ -210,6 +212,11 @@ void mouse_callback(GLFWwindow* window, int button, int action, int mods) {
         double xpos, ypos;
         glfwGetCursorPos(window, &xpos, &ypos);
         std::cout << xpos << ',' << ypos << std::endl;
+
+        // button_pressed = true;
+    }
+    if (inRange && button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+        button_pressed = true;
     }
 }
 
@@ -390,7 +397,6 @@ int main() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-
     // // load shadow
     // std::string imgPath_playerShadow = std::string(WORKSPACE_DIR) + "/resources/img/shadow_player.png";
     // GLuint texture_playerShadow = loadTexture(imgPath_playerShadow.c_str());
@@ -440,13 +446,44 @@ int main() {
     const std::string hit_audioFile = std::string(WORKSPACE_DIR) + "/resources/mus/hit.wav";
     audioPlayer.loadSound(bgm_audioFile);
     audioPlayer.loadSound(hit_audioFile);
-    audioPlayer.play(0, true);
+    bool music_played = false;
+    // audioPlayer.play(0, true);
+
+    // main menu
+    bool is_game_started = false;
+    std::string menuBackgroundVertShaderPath = std::string(WORKSPACE_DIR) + "/shaders/background.vert";
+    std::string menuBackgroundFragShaderPath = std::string(WORKSPACE_DIR) + "/shaders/background.frag";
+    Shader menuBackgroundShader(menuBackgroundVertShaderPath.c_str(), menuBackgroundFragShaderPath.c_str());
+    std::string menu_imgPath = std::string(WORKSPACE_DIR) + "/resources/img/menu.png";
+    GLuint menu_texture = loadTexture(menu_imgPath.c_str());
+    std::string buttonVertShaderPath = std::string(WORKSPACE_DIR) + "/shaders/button.vert";
+    std::string buttonFragShaderPath = std::string(WORKSPACE_DIR) + "/shaders/button.frag";
+    Shader buttonShader(buttonVertShaderPath.c_str(), buttonFragShaderPath.c_str());
+    glm::vec3 scale(0.5f, 0.5f, 1.0f);
+    glm::vec3 offset(0.0f, 0.0f, 0.0f);
+    std::string startButtonIdlePath = std::string(WORKSPACE_DIR) + "/resources/img/ui_start_idle.png";
+    GLuint start_button_idle_texture = loadTexture(startButtonIdlePath.c_str());
+    std::string startButtonHoveredPath = std::string(WORKSPACE_DIR) + "/resources/img/ui_start_hovered.png";
+    GLuint start_button_hovered_texture = loadTexture(startButtonHoveredPath.c_str());
+    std::string startButtonPushedPath = std::string(WORKSPACE_DIR) + "/resources/img/ui_start_pushed.png";
+    GLuint start_button_pushed_texture = loadTexture(startButtonPushedPath.c_str());
+    std::string quitButtonIdlePath = std::string(WORKSPACE_DIR) + "/resources/img/ui_quit_idle.png";
+    GLuint quit_button_idle_texture = loadTexture(quitButtonIdlePath.c_str());
+    std::string quitButtonHoveredPath = std::string(WORKSPACE_DIR) + "/resources/img/ui_quit_hovered.png";
+    GLuint quit_button_hovered_texture = loadTexture(quitButtonHoveredPath.c_str());
+    std::string quitButtonPushedPath = std::string(WORKSPACE_DIR) + "/resources/img/ui_quit_pushed.png";
+    GLuint quit_button_pushed_texture = loadTexture(quitButtonPushedPath.c_str());
 
     // 主循环
     while (!glfwWindowShouldClose(window)) {
         // deal with events
         // poll IO events(keys pressed/released, mouse moved etc.)
         glfwPollEvents();  
+
+        // start new ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
 
         // Sequential frames animal
         static int counter = 0;
@@ -467,103 +504,190 @@ int main() {
             // clear screen
             glClearColor(0.45f, 0.55f, 0.60f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
-
-            // use shaderProgram
-            backgroundShader.use();
-            // bind texture on corresponding texture units
-            // glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_2D, texture);
-
-            // render container
-            glBindVertexArray(VAO);
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-            glBindVertexArray(0);
-
-            characterShader.use();
-            glActiveTexture(GL_TEXTURE0);
-            // glBindTexture(GL_TEXTURE_2D, texture_playerShadow);
-            // glActiveTexture(GL_TEXTURE1);
-            if (facing_left)
-                glBindTexture(GL_TEXTURE_2D, img_player_left[idx_current_anim]);
-            else
-                glBindTexture(GL_TEXTURE_2D, img_player_right[idx_current_anim]);
-
-            if (player_pos.x < -1.0f) player_pos.x = -1.0f;
-            if (player_pos.x > 1.0f) player_pos.x = 1.0f;
-            if (player_pos.y < -1.0f) player_pos.y = -1.0f;
-            if (player_pos.y > 1.0f) player_pos.y = 1.0f;
-
-            glm::mat4 model = glm::mat4(1.0f);
-            model = glm::translate(model, player_pos);
-            // set the texture value in the shader
-            characterShader.setMat4("model", model);
-
-            glBindVertexArray(VAO1);
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-            glBindVertexArray(0);
-
-            // draw game
-
-            // enemy
-            tryGenerateEnemy(enemy_list);
-            for (Enemy* enemy : enemy_list)
+            if (is_game_started)
             {
-                if (enemy->facing_left)
-                    glBindTexture(GL_TEXTURE_2D, img_enemy_left[idx_current_anim]);
-                else 
-                    glBindTexture(GL_TEXTURE_2D, img_enemy_right[idx_current_anim]);
+                ImGui::Begin("Scoreboard", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+                ImGui::SetWindowPos(ImVec2(10, 10), ImGuiCond_Always);  // 设置窗口位置在左上角
+                ImGui::Text("Score: %d", score);  // 显示得分
+                ImGui::End();
 
-                enemy->move(player_pos);
-                glm::mat4 model_enemy = glm::mat4(1.0f);
-                model_enemy = glm::translate(model_enemy, enemy->position);
-                characterShader.setMat4("model", model_enemy);
+                if (!music_played)
+                {
+                    audioPlayer.play(0, true);
+                    music_played = true;
+                }
+
+                // use shaderProgram
+                backgroundShader.use();
+                // bind texture on corresponding texture units
+                // glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D, texture);
+
+                // render container
+                glBindVertexArray(VAO);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                glBindVertexArray(0);
+
+                characterShader.use();
+                glActiveTexture(GL_TEXTURE0);
+                // glBindTexture(GL_TEXTURE_2D, texture_playerShadow);
+                // glActiveTexture(GL_TEXTURE1);
+                if (facing_left)
+                    glBindTexture(GL_TEXTURE_2D, img_player_left[idx_current_anim]);
+                else
+                    glBindTexture(GL_TEXTURE_2D, img_player_right[idx_current_anim]);
+
+                if (player_pos.x < -1.0f) player_pos.x = -1.0f;
+                if (player_pos.x > 1.0f) player_pos.x = 1.0f;
+                if (player_pos.y < -1.0f) player_pos.y = -1.0f;
+                if (player_pos.y > 1.0f) player_pos.y = 1.0f;
+
+                glm::mat4 model = glm::mat4(1.0f);
+                model = glm::translate(model, player_pos);
+                // set the texture value in the shader
+                characterShader.setMat4("model", model);
+
                 glBindVertexArray(VAO1);
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
                 glBindVertexArray(0);
-            }
 
-            // bullet
-            updateBullets(bullet_list, player_pos);
-            basicTriangleShader.use();
-            for (const Bullet& bullet : bullet_list)
-            {
-                glm::mat4 model_bullet = glm::mat4(1.0f);
-                model_bullet = glm::translate(model_bullet, bullet.position);
-                characterShader.setMat4("model", model_bullet);
-                glBindVertexArray(circleVAO);
-                glDrawArrays(GL_TRIANGLE_FAN, 0, verticesCircle.size());
-                glBindVertexArray(0);      
-            }
-            // check bullet with enemy collision
-            for (Enemy* enemy : enemy_list)
-            {
+                // draw game
+
+                // enemy
+                tryGenerateEnemy(enemy_list);
+                for (Enemy* enemy : enemy_list)
+                {
+                    if (enemy->facing_left)
+                        glBindTexture(GL_TEXTURE_2D, img_enemy_left[idx_current_anim]);
+                    else 
+                        glBindTexture(GL_TEXTURE_2D, img_enemy_right[idx_current_anim]);
+
+                    enemy->move(player_pos);
+                    glm::mat4 model_enemy = glm::mat4(1.0f);
+                    model_enemy = glm::translate(model_enemy, enemy->position);
+                    characterShader.setMat4("model", model_enemy);
+                    glBindVertexArray(VAO1);
+                    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                    glBindVertexArray(0);
+                }
+
+                // bullet
+                updateBullets(bullet_list, player_pos);
+                basicTriangleShader.use();
                 for (const Bullet& bullet : bullet_list)
                 {
-                    if (enemy->checkBulletCollision(bullet))
+                    glm::mat4 model_bullet = glm::mat4(1.0f);
+                    model_bullet = glm::translate(model_bullet, bullet.position);
+                    characterShader.setMat4("model", model_bullet);
+                    glBindVertexArray(circleVAO);
+                    glDrawArrays(GL_TRIANGLE_FAN, 0, verticesCircle.size());
+                    glBindVertexArray(0);      
+                }
+                // check bullet with enemy collision
+                for (Enemy* enemy : enemy_list)
+                {
+                    for (const Bullet& bullet : bullet_list)
                     {
-                        enemy->hurted();
-                        score++;
-                        audioPlayer.play(1, false);
+                        if (enemy->checkBulletCollision(bullet))
+                        {
+                            enemy->hurted();
+                            score++;
+                            audioPlayer.play(1, false);
+                        }
+                    }
+                }
+                // remove enemey hurted
+                for (int i = 0; i < enemy_list.size(); i++)
+                {
+                    Enemy* enemy = enemy_list[i];
+                    if (!enemy->checkAlive())
+                    {
+                        std::swap(enemy_list[i], enemy_list.back());
+                        enemy_list.pop_back();
+                        delete enemy;
                     }
                 }
             }
-            // remove enemey hurted
-            for (int i = 0; i < enemy_list.size(); i++)
+            else
             {
-                Enemy* enemy = enemy_list[i];
-                if (!enemy->checkAlive())
+                // menu background
+                menuBackgroundShader.use();
+                glBindTexture(GL_TEXTURE_2D, menu_texture);
+                
+                glBindVertexArray(VAO);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                glBindVertexArray(0);
+                // button
+                scale = glm::vec3(0.12f, 0.13f, 1.0f);
+                offset = glm::vec3(-3.0f, -2.2f, 0.0f);
+                glm::mat4 button_model = glm::mat4(1.0f);
+                button_model = glm::scale(button_model, scale);
+                button_model = glm::translate(button_model, offset);
+                buttonShader.use();
+                glBindTexture(GL_TEXTURE_2D, start_button_idle_texture);
+                buttonShader.setMat4("model", button_model);
+                glBindVertexArray(VAO);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                glBindVertexArray(0);
+
+                scale = glm::vec3(0.12f, 0.13f, 1.0f);
+                offset = glm::vec3(3.0f, -2.2f, 0.0f);
+                button_model = glm::mat4(1.0f);
+                button_model = glm::scale(button_model, scale);
+                button_model = glm::translate(button_model, offset);
+                buttonShader.use();
+                glBindTexture(GL_TEXTURE_2D, quit_button_idle_texture);
+                buttonShader.setMat4("model", button_model);
+                glBindVertexArray(VAO);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                glBindVertexArray(0);     
+
+                double currentX, currentY;
+                glfwGetCursorPos(window, &currentX, &currentY);
+                // std::cout << currentX << " " << currentY << std::endl;
+                if (currentX >= 388 && currentX <= 484 && currentY >= 422 && currentY <= 499)
                 {
-                    std::swap(enemy_list[i], enemy_list.back());
-                    enemy_list.pop_back();
-                    delete enemy;
+                    scale = glm::vec3(0.12f, 0.13f, 1.0f);
+                    offset = glm::vec3(-3.0f, -2.2f, 0.0f);
+                    button_model = glm::mat4(1.0f);
+                    button_model = glm::scale(button_model, scale);
+                    button_model = glm::translate(button_model, offset);
+                    buttonShader.use();
+                    glBindTexture(GL_TEXTURE_2D, start_button_hovered_texture);
+                    buttonShader.setMat4("model", button_model);
+                    glBindVertexArray(VAO);
+                    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                    glBindVertexArray(0);
+                    if (button_pressed)
+                    {
+                        is_game_started = true;
+                    }
+                    inRange = true;
                 }
+                else if (currentX >= 799 && currentX <= 943 && currentY >= 421 && currentY <= 495)
+                {
+                    scale = glm::vec3(0.12f, 0.13f, 1.0f);
+                    offset = glm::vec3(3.0f, -2.2f, 0.0f);
+                    button_model = glm::mat4(1.0f);
+                    button_model = glm::scale(button_model, scale);
+                    button_model = glm::translate(button_model, offset);
+                    buttonShader.use();
+                    glBindTexture(GL_TEXTURE_2D, quit_button_hovered_texture);
+                    buttonShader.setMat4("model", button_model);
+                    glBindVertexArray(VAO);
+                    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                    glBindVertexArray(0);
+                    if (button_pressed)
+                    {
+                        glfwSetWindowShouldClose(window, true);
+                    }
+                    inRange = true;
+                }
+                else             
+                    inRange = false;
             }
         }         
 
-        // start new ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
 
         // check if collision
         for (Enemy* enemy : enemy_list)
@@ -584,11 +708,6 @@ int main() {
                 freezeScreen = true;
             }
         }
-
-        ImGui::Begin("Scoreboard", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
-        ImGui::SetWindowPos(ImVec2(10, 10), ImGuiCond_Always);  // 设置窗口位置在左上角
-        ImGui::Text("Score: %d", score);  // 显示得分
-        ImGui::End();
 
         // 渲染 ImGui
         ImGui::Render();
