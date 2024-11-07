@@ -10,7 +10,7 @@
 
 #include <iostream>
 #include <cmath>
-// #include <chrono>
+#include <chrono>
 #include <unistd.h>
 #include <string>
 #include <time.h>
@@ -20,6 +20,7 @@
 
 #include "shader.h"
 #include "enemy.h"
+#include "audioPlayer.h"
 
 double mouseX, mouseY;
 bool game_over = false;
@@ -40,50 +41,51 @@ struct timespec current_time;
 const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
 
-// // circle whole
-// void setupCircleVAO(float x, float y, float radius, int segments, glm::vec3 fillColor, glm::vec3 borderColor, GLuint& VAO)
-// {
-//     // 生成顶点和颜色数据
-//     std::vector<glm::vec2> vertices;
-//     std::vector<glm::vec3> colors;
+float aspect = (float)SCR_WIDTH / (float)SCR_HEIGHT;
 
-//     // 中心点
-//     vertices.push_back(glm::vec2(x, y));
-//     colors.push_back(fillColor); // 内部颜色
+// circle whole
+void setupCircleVAO(float x, float y, float radius, int segments, std::vector<glm::vec2>& vertices, glm::vec3 fillColor, glm::vec3 borderColor, GLuint& VAO, GLuint& colorVBO, GLuint& VBO)
+{
+    // 生成顶点和颜色数据
+    std::vector<glm::vec3> colors;
+        
+    // 中心点
+    vertices.push_back(glm::vec2(x, y));
+    colors.push_back(fillColor); // 内部颜色
 
-//     // 圆周上的点（边缘）
-//     for (int i = 0; i <= segments; ++i)
-//     {
-//         float angle = 2.0f * 3.14159265359f * i / segments;
-//         float cx = x + radius * cos(angle);
-//         float cy = y + radius * sin(angle);
-//         vertices.push_back(glm::vec2(cx, cy));
-//         colors.push_back(borderColor); // 边缘颜色
-//     }
+    // 圆周上的点（边缘）
+    for (int i = 0; i <= segments; ++i)
+    {
+        float angle = 2.0f * 3.14159265359f * i / segments;
+        float cx = x + radius * cos(angle);
+        float cy = y + radius * sin(angle);
 
-//     // 设置VAO、VBO、颜色VBO等
-//     GLuint VBO, colorVBO;
-//     glGenVertexArrays(1, &VAO);
-//     glGenBuffers(1, &VBO);
-//     glGenBuffers(1, &colorVBO);
+        if (aspect > 1.0f)
+            cx /= aspect;
+        else
+            cy /= aspect;
 
-//     glBindVertexArray(VAO);
+        vertices.push_back(glm::vec2(cx, cy));
+        colors.push_back(borderColor); // 边缘颜色
+    }
 
-//     // 设置顶点数据
-//     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-//     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(), GL_STATIC_DRAW);
-//     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
-//     glEnableVertexAttribArray(0);
+    glBindVertexArray(VAO);
 
-//     // 设置颜色数据
-//     glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
-//     glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(glm::vec3), colors.data(), GL_STATIC_DRAW);
-//     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-//     glEnableVertexAttribArray(1);
+    // 设置顶点数据
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
 
-//     // glBindBuffer(GL_ARRAY_BUFFER, 0);
-//     // glBindVertexArray(0);
-// }
+    // 设置颜色数据
+    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(glm::vec3), colors.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
 
 
 
@@ -95,21 +97,23 @@ void tryGenerateEnemy(std::vector<Enemy*>& enemy_list)
         enemy_list.push_back(new Enemy());
 }
 // update bullet location
-// void updateBullets(std::vector<Bullet>& bullet_list, const glm::vec3& player_pos)
-// {
-//     const float radial_speed = 0.00045;
-//     const float tangent_speed = 0.00055;
-//     float radian_interval = 2 * 3.14159 / bullet_list.size();
-//     clock_gettime(CLOCK_MONOTONIC, &current_time);
-//     // std::cout << current_time.tv_nsec << std::endl;
-//     float radius = 0.100 + 0.25 * sin(current_time.tv_nsec * radial_speed);
-//     for (int i = 0; i < bullet_list.size(); i++)
-//     {
-//         float radian = current_time.tv_nsec * tangent_speed + radian_interval * i;
-//         bullet_list[i].position.x = player_pos.x + (int)(radius * sin(radian));
-//         bullet_list[i].position.y = player_pos.y + (int)(radius * cos(radian));
-//     }
-// }
+void updateBullets(std::vector<Bullet>& bullet_list, const glm::vec3& player_pos)
+{
+    const float radial_speed = 0.00045;
+    const float tangent_speed = 0.0055;
+    float radian_interval = 2 * 3.14159 / bullet_list.size();
+    auto now = std::chrono::steady_clock::now();
+    auto current_time = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    // std::cout << current_time << std::endl;
+    float radius = 0.25 + 0.1 * sin(current_time * radial_speed);
+    for (int i = 0; i < bullet_list.size(); i++)
+    {
+        float radian = current_time * tangent_speed + radian_interval * i;
+        bullet_list[i].position.x = player_pos.x + radius * sin(radian) / aspect;
+        bullet_list[i].position.y = player_pos.y + radius * cos(radian);
+        // std::cout << bullet_list[i].position.x << std::endl;
+    }
+}
 
 // load and create a texture
 GLuint loadTexture(const char* filePath) {
@@ -407,23 +411,36 @@ int main() {
     // Bullet
     std::vector<Bullet> bullet_list(3);
     // 使用着色器并绘制圆形
-    // std::string basicTriangleVertShaderPath = std::string(WORKSPACE_DIR) + "/shaders/basicTriangle.vert";
-    // std::string basicTriangleFragShaderPath = std::string(WORKSPACE_DIR) + "/shaders/basicTriangle.frag";
-
-    // Shader basicTriangleShader(basicTriangleVertShaderPath.c_str(), basicTriangleFragShaderPath.c_str());
+    std::string basicTriangleVertShaderPath = std::string(WORKSPACE_DIR) + "/shaders/basicTriangle.vert";
+    std::string basicTriangleFragShaderPath = std::string(WORKSPACE_DIR) + "/shaders/basicTriangle.frag";
+    Shader basicTriangleShader(basicTriangleVertShaderPath.c_str(), basicTriangleFragShaderPath.c_str());
     // basicTriangleShader.use();
-    // GLuint circleVAO, circleVBO;
-    // setupCircleVAO(VAO)
-    // glBindVertexArray(VAO);
-    // glDrawArrays(GL_TRIANGLE_FAN, 0, vertices.size());
-    // glBindVertexArray(0);
+    // 设置VAO、VBO、颜色VBO等
+    GLuint circleVAO, colorVBO, circleVBO;
+    std::vector<glm::vec2> verticesCircle;
+    glGenVertexArrays(1, &circleVAO);
+    glGenBuffers(1, &circleVBO);
+    glGenBuffers(1, &colorVBO);
+    setupCircleVAO(0.0, 0.0, 0.05, 100, verticesCircle ,glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0), circleVAO, colorVBO, circleVBO);
+    // float aspect = (float)SCR_WIDTH / (float)SCR_HEIGHT;
+    glm::mat4 projection = glm::mat4(1.0f);
+    // if (aspect > 1.0)
+    //     projection = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -1.0f, 1.0f);
+    // else
+    //     projection = glm::ortho(-1.0f, 1.0f, -1.0f / aspect, 1.0f / aspect, -1.0f, 1.0f);
+    basicTriangleShader.use();
+    basicTriangleShader.setMat4("projection", projection);
 
-    // // 清理
-    // glDeleteBuffers(1, &VBO);
-    // glDeleteBuffers(1, &colorVBO);
-    // glDeleteVertexArrays(1, &VAO);
+    // game score
+    int score = 0;
 
-
+    // load music
+    AudioPlayer audioPlayer;
+    const std::string bgm_audioFile = std::string(WORKSPACE_DIR) + "/resources/mus/bgm.mp3";
+    const std::string hit_audioFile = std::string(WORKSPACE_DIR) + "/resources/mus/hit.wav";
+    audioPlayer.loadSound(bgm_audioFile);
+    audioPlayer.loadSound(hit_audioFile);
+    audioPlayer.play(0, true);
 
     // 主循环
     while (!glfwWindowShouldClose(window)) {
@@ -506,12 +523,41 @@ int main() {
             }
 
             // bullet
-            // updateBullets(bullet_list, player_pos);
-            // for (const Bullet& bullet : bullet_list)
-            // {
-            //     // drawCircle(0.0, 0.0, 0.05, 100, glm::vec3(1.0, 0.0, 0.0), glm::vec3(1.0, 1.0, 0.0));
-            // }
-
+            updateBullets(bullet_list, player_pos);
+            basicTriangleShader.use();
+            for (const Bullet& bullet : bullet_list)
+            {
+                glm::mat4 model_bullet = glm::mat4(1.0f);
+                model_bullet = glm::translate(model_bullet, bullet.position);
+                characterShader.setMat4("model", model_bullet);
+                glBindVertexArray(circleVAO);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, verticesCircle.size());
+                glBindVertexArray(0);      
+            }
+            // check bullet with enemy collision
+            for (Enemy* enemy : enemy_list)
+            {
+                for (const Bullet& bullet : bullet_list)
+                {
+                    if (enemy->checkBulletCollision(bullet))
+                    {
+                        enemy->hurted();
+                        score++;
+                        audioPlayer.play(1, false);
+                    }
+                }
+            }
+            // remove enemey hurted
+            for (int i = 0; i < enemy_list.size(); i++)
+            {
+                Enemy* enemy = enemy_list[i];
+                if (!enemy->checkAlive())
+                {
+                    std::swap(enemy_list[i], enemy_list.back());
+                    enemy_list.pop_back();
+                    delete enemy;
+                }
+            }
         }         
 
         // start new ImGui frame
@@ -527,7 +573,7 @@ int main() {
                 ImGui::Begin("Game Over!", &showWindow);
 
                 ImGui::SetCursorPos(ImVec2(150, 50));
-                ImGui::Text("Press 1 and Check CG");
+                ImGui::Text("Score: %d", score);
 
                 ImGui::SetCursorPos(ImVec2(150, 75));
                 if (ImGui::Button("Close")) {
@@ -538,6 +584,11 @@ int main() {
                 freezeScreen = true;
             }
         }
+
+        ImGui::Begin("Scoreboard", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+        ImGui::SetWindowPos(ImVec2(10, 10), ImGuiCond_Always);  // 设置窗口位置在左上角
+        ImGui::Text("Score: %d", score);  // 显示得分
+        ImGui::End();
 
         // 渲染 ImGui
         ImGui::Render();
@@ -559,6 +610,10 @@ int main() {
     glDeleteVertexArrays(1, &VAO1);
     glDeleteBuffers(1, &VBO1);
     glDeleteBuffers(1, &EBO1);
+
+    glDeleteBuffers(1, &circleVBO);
+    glDeleteBuffers(1, &colorVBO);
+    glDeleteVertexArrays(1, &circleVAO);
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

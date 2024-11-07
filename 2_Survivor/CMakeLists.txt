@@ -21,6 +21,22 @@ find_package(glfw3 REQUIRED)
 # include_directories(${CMAKE_SOURCE_DIR}/../external/glfw/include)
 # 查找GLM库
 find_package(glm REQUIRED)
+# find OpenAL
+find_package(OpenAL REQUIRED)
+if(NOT OpenAL_FOUND)
+    message(FATAL_ERROR "OpenAL not found. Please install OpenAL.")
+endif()
+# find libsndfile（手动查找库和头文件）
+find_path(SNDFILE_INCLUDE_DIR sndfile.h)
+find_library(SNDFILE_LIBRARY sndfile)
+# find libmpg123
+# find_package(PkgConfig REQUIRED)
+# pkg_check_modules(MPG123 REQUIRED mpg123)
+# include_directories(${MPG123_INCLUDE_DIRS})
+# link_libraries(${MPG123_LIBRARIES})
+# 手动设置路径(因为mpg123在非标准路径)
+include_directories(/usr/include)
+link_directories(/usr/lib/x86_64-linux-gnu)
 
 
 # set env variable
@@ -52,6 +68,7 @@ set(SOURCES
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../external/imageloader
     ${CMAKE_CURRENT_SOURCE_DIR}/../includes
     ${CMAKE_CURRENT_SOURCE_DIR}/includes
+    ${SNDFILE_INCLUDE_DIR}
 )
 
 # 添加可执行文件
@@ -61,7 +78,12 @@ add_executable(2_Survivor ${SOURCES})
 target_link_libraries(2_Survivor PRIVATE
     glfw3
     X11  # 添加 X11 库
-    ${OPENGL_LIBRARIES})
+    ${OPENGL_LIBRARIES}
+    openal
+    ${SNDFILE_LIBRARY}
+    # ${MPG123_LIBRARIES}
+    mpg123
+)
 
 # 如果有使用GLM，添加
 # target_link_libraries(1_OXGame PRIVATE glm::glm)

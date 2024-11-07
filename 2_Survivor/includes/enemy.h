@@ -12,6 +12,8 @@ private:
     const int frame_width = 80; // enemy width
     const int frame_height = 80; // enemy height
 
+    bool alive = true;
+
 public:
     Enemy()
     {
@@ -53,10 +55,15 @@ public:
             break;
         }
 
-    };
+    }
+    ~Enemy(){}
 
     bool checkBulletCollision(const Bullet& bullet)
     {
+        glm::vec3 dist = bullet.position - position;
+        // std::cout << glm::length(dist) << std::endl;
+        if (glm::length(dist) < 0.1f)
+            return true;
         return false;
     }
     bool checkPlayerCollision(const glm::vec3& player_position)
@@ -94,7 +101,17 @@ public:
         drawEnemy = true;
     }
 
-    ~Enemy(){};
+    void hurted()
+    {
+        alive = false;
+    }
+
+    bool checkAlive()
+    {
+        return alive;
+    }
+
+
 
 
 
