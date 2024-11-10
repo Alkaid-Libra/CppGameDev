@@ -20,7 +20,7 @@
 
 #include "shader.h"
 #include "enemy.h"
-#include "audioPlayer.h"
+#include "audio_player.h"
 
 double mouseX, mouseY;
 bool game_over = false;
@@ -434,7 +434,7 @@ int main() {
     //     projection = glm::ortho(-aspect, aspect, -1.0f, 1.0f, -1.0f, 1.0f);
     // else
     //     projection = glm::ortho(-1.0f, 1.0f, -1.0f / aspect, 1.0f / aspect, -1.0f, 1.0f);
-    basicTriangleShader.use();
+    basicTriangleShader.activate();
     basicTriangleShader.setMat4("projection", projection);
 
     // game score
@@ -518,7 +518,7 @@ int main() {
                 }
 
                 // use shaderProgram
-                backgroundShader.use();
+                backgroundShader.activate();
                 // bind texture on corresponding texture units
                 // glActiveTexture(GL_TEXTURE2);
                 glBindTexture(GL_TEXTURE_2D, texture);
@@ -528,7 +528,7 @@ int main() {
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
                 glBindVertexArray(0);
 
-                characterShader.use();
+                characterShader.activate();
                 glActiveTexture(GL_TEXTURE0);
                 // glBindTexture(GL_TEXTURE_2D, texture_playerShadow);
                 // glActiveTexture(GL_TEXTURE1);
@@ -573,7 +573,7 @@ int main() {
 
                 // bullet
                 updateBullets(bullet_list, player_pos);
-                basicTriangleShader.use();
+                basicTriangleShader.activate();
                 for (const Bullet& bullet : bullet_list)
                 {
                     glm::mat4 model_bullet = glm::mat4(1.0f);
@@ -611,7 +611,7 @@ int main() {
             else
             {
                 // menu background
-                menuBackgroundShader.use();
+                menuBackgroundShader.activate();
                 glBindTexture(GL_TEXTURE_2D, menu_texture);
                 
                 glBindVertexArray(VAO);
@@ -623,7 +623,7 @@ int main() {
                 glm::mat4 button_model = glm::mat4(1.0f);
                 button_model = glm::scale(button_model, scale);
                 button_model = glm::translate(button_model, offset);
-                buttonShader.use();
+                buttonShader.activate();
                 glBindTexture(GL_TEXTURE_2D, start_button_idle_texture);
                 buttonShader.setMat4("model", button_model);
                 glBindVertexArray(VAO);
@@ -635,7 +635,7 @@ int main() {
                 button_model = glm::mat4(1.0f);
                 button_model = glm::scale(button_model, scale);
                 button_model = glm::translate(button_model, offset);
-                buttonShader.use();
+                buttonShader.activate();
                 glBindTexture(GL_TEXTURE_2D, quit_button_idle_texture);
                 buttonShader.setMat4("model", button_model);
                 glBindVertexArray(VAO);
@@ -652,7 +652,7 @@ int main() {
                     button_model = glm::mat4(1.0f);
                     button_model = glm::scale(button_model, scale);
                     button_model = glm::translate(button_model, offset);
-                    buttonShader.use();
+                    buttonShader.activate();
                     glBindTexture(GL_TEXTURE_2D, start_button_hovered_texture);
                     buttonShader.setMat4("model", button_model);
                     glBindVertexArray(VAO);
@@ -671,7 +671,7 @@ int main() {
                     button_model = glm::mat4(1.0f);
                     button_model = glm::scale(button_model, scale);
                     button_model = glm::translate(button_model, offset);
-                    buttonShader.use();
+                    buttonShader.activate();
                     glBindTexture(GL_TEXTURE_2D, quit_button_hovered_texture);
                     buttonShader.setMat4("model", button_model);
                     glBindVertexArray(VAO);

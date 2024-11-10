@@ -5,6 +5,14 @@
 
     // "cmake.sourceDirectory": "/home/leiqin/Filemanager/StudyStuff/Games/CppGameDev/2_Survivor"
 
-    "cmake.sourceDirectory": "/home/leiqin/Filemanager/StudyStuff/Games/CppGameDev/3_PlantBattles"
+    // "cmake.sourceDirectory": "/home/leiqin/Filemanager/StudyStuff/Games/CppGameDev/3_PlantBattles"
+
+    // "cmake.sourceDirectory": "/home/leiqin/Filemanager/StudyStuff/Games/CppGameDev/4.1_InPractice_Debugging"
+
+    "cmake.sourceDirectory": "/home/leiqin/Filemanager/StudyStuff/Games/CppGameDev/4.2_InPractice_TextRendering"
+
+
+    // "cmake.sourceDirectory": "/home/leiqin/Filemanager/StudyStuff/Games/CppGameDev/4.3_InPractice_2DGame"
+
 
 }

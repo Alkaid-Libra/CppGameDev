@@ -8,7 +8,8 @@
                 "${workspaceFolder}/external/imgui/backends",
                 "${workspaceFolder}/external/imageloader",
                 "${workspaceFolder}/2_Survivor/includes",
-                "${workspaceFolder}/3_PlantBattles/includes"
+                "${workspaceFolder}/3_PlantBattles/includes",
+                "${workspaceFolder}/external/freetype/include/freetype2"
             ],
             "defines": [
                 "WORKSPACE_DIR=\"${workspaceFolder}\""
