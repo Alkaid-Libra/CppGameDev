@@ -8,7 +8,7 @@ cmake_policy(SET CMP0072 NEW)
 project(CppGameDev VERSION 0.1.1 LANGUAGES C CXX)
 
 # 设置 C++ 标准
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 # 查找 OpenGL 库
 find_package(OpenGL REQUIRED)
@@ -43,6 +43,20 @@ link_directories(/usr/lib/x86_64-linux-gnu)
 set(WORKSPACE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # define WORKSPACE_DIR micro to cpp
 add_definitions(-DWORKSPACE_DIR="${WORKSPACE_DIR}")
+# define the root directory path
+set(PROJECT_ROOT_PATH "${CMAKE_SOURCE_DIR}")
+# configure the root_directory.h.in template to generate root_directory.h
+configure_file(
+    ${CMAKE_SOURCE_DIR}/../includes/root_directory.h.in
+    # ${CMAKE_BINARY_DIR}/root_directory.h
+    ${CMAKE_SOURCE_DIR}/includes/root_directory.h
+    @ONLY
+)
+
+# 设置irrKlang头文件和库路径
+set(IRRKLANG_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/../external/irrKlang/include")
+set(IRRKLANG_LIBRARY_DIR "${CMAKE_SOURCE_DIR}/../external/irrKlang/lib")
+
 
 # 源文件
 set(GLAD_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/../external/glad/include)
@@ -59,7 +73,7 @@ set(IMGUI_SOURCES
 )
 
 set(SOURCES
-    src/PlantBattles.cpp
+    src/2dgame.cpp
     ${IMGUI_SOURCES}
     ${GLAD_SOURCES}
 )
@@ -70,6 +84,10 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../external/imageloader
     ${CMAKE_CURRENT_SOURCE_DIR}/includes
     ${SNDFILE_INCLUDE_DIR}
 )
+# 包含irrKlang头文件
+include_directories(${IRRKLANG_INCLUDE_DIR})
+# 添加irrKlang库
+link_directories(${IRRKLANG_LIBRARY_DIR})
 
 # 添加可执行文件
 add_executable(main ${SOURCES})
@@ -83,6 +101,7 @@ target_link_libraries(main PRIVATE
     ${SNDFILE_LIBRARY}
     # ${MPG123_LIBRARIES}
     mpg123
+    IrrKlang
 )
 
 # 如果有使用GLM，添加

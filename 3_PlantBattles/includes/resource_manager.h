@@ -2,7 +2,7 @@
 #define RESOURCE_MANAGER_H
 
 #include <glad/glad.h>
-// #define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 #include <map>
@@ -15,8 +15,8 @@ class ResourceManager
 {
 public:
     // resource storage
-    static std::map<std::string, Shader> shaders;
-    static std::map<std::string, Texture2D> textures;
+    inline static std::map<std::string, Shader> shaders;
+    inline static std::map<std::string, Texture2D> textures;
     // loads (and generates) a shader program from file loading vertex, fragment (and geometry) shader's source code. If gShaderFile is not nullptr, it also loads a geometry shader
     static Shader loadShader(const char *vShaderFile, const char *fShaderFile, const char *gShaderFile, std::string name)
     {
@@ -35,7 +35,7 @@ public:
         return textures[name];
     }
     // retrieves a stored texture
-    static Texture2D getTexture(std::string name)
+    static Texture2D &getTexture(std::string name)
     {
         return textures[name];
     }

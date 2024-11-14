@@ -220,6 +220,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //核心模式，核心模式下不能使用glBegin()/glEnd()
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE); //兼容核心模式
+    glfwWindowHint(GLFW_SAMPLES, 4);
 
     // create GLFW window
     GLFWwindow* window = glfwCreateWindow(600, 600, "OXGame", nullptr, nullptr);
@@ -242,6 +243,7 @@ int main() {
 
     // initialize OpenGL and Imgui(imgui initial should be after mouse callback)
     initialize(window);
+    glEnable(GL_MULTISAMPLE);
 
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     // // set the style of ImGui

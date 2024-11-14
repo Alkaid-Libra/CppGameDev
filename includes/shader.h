@@ -6,6 +6,8 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 class Shader 
 {
@@ -116,6 +118,11 @@ public:
     {
         glUseProgram(0);
     }
+    Shader &use()
+    {
+        glUseProgram(this->ID);
+        return *this;
+    }
     // utility uniform functions
     // --------------------------
     void setBool(const std::string& name, bool value) const
@@ -129,6 +136,42 @@ public:
     void setFloat(const std::string& name, float value) const
     {
         glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
+    }
+    void setVector2f(const char *name, float x, float y, bool useShader = false)
+    {
+        if (useShader)
+            this->use();
+        glUniform2f(glGetUniformLocation(this->ID, name), x, y);
+    }
+    void setVector2f(const char *name, const glm::vec2 &value, bool useShader = false)
+    {
+        if (useShader)
+            this->use();
+        glUniform2f(glGetUniformLocation(this->ID, name), value.x, value.y);
+    }
+    void setVector3f(const char *name, float x, float y, float z, bool useShader = false)
+    {
+        if (useShader)
+            this->use();
+        glUniform3f(glGetUniformLocation(this->ID, name), x, y, z);
+    }
+    void setVector3f(const char *name, const glm::vec3 &value, bool useShader = false)
+    {
+        if (useShader)
+            this->use();
+        glUniform3f(glGetUniformLocation(this->ID, name), value.x, value.y, value.z);
+    }
+    void setVector4f(const char *name, float x, float y, float z, float w, bool useShader = false)
+    {
+        if (useShader)
+            this->use();
+        glUniform4f(glGetUniformLocation(this->ID, name), x, y, z, w);
+    }
+    void setVector4f(const char *name, const glm::vec4 &value, bool useShader = false)
+    {
+        if (useShader)
+            this->use();
+        glUniform4f(glGetUniformLocation(this->ID, name), value.x, value.y, value.z, value.w);
     }
     void setMat4(const std::string& name, const glm::mat4& mat) const
     {
