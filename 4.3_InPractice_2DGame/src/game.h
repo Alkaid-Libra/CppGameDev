@@ -182,7 +182,8 @@ public:
     unsigned int            Level;
     unsigned int            Lives;
     Game(unsigned int width, unsigned int height)
-        : State(GAME_MENU), Keys(), KeysProcessed(), Width(width), Height(height), Level(0), Lives(3)
+        : State(GAME_ACTIVE), Keys(), KeysProcessed(), Width(width), Height(height), Level(0), Lives(3)
+        // : State(GAME_MENU), Keys(), KeysProcessed(), Width(width), Height(height), Level(0), Lives(3)
     {
 
     }
@@ -201,14 +202,14 @@ public:
     {
         // load shaders
         ResourceManager::loadShader(FileSystem::getPath("shaders/sprite.vs").c_str(), FileSystem::getPath("shaders/sprite.fs").c_str(), nullptr, "sprite");
-        // ResourceManager::loadShader("particle.vs", "particle.fs", nullptr, "particle");
-        // ResourceManager::loadShader("post_processing.vs", "post_processing.fs", nullptr, "postprocessing");
+        ResourceManager::loadShader(FileSystem::getPath("shaders/particle.vs").c_str(), FileSystem::getPath("shaders/particle.fs").c_str(), nullptr, "particle");
+        ResourceManager::loadShader(FileSystem::getPath("shaders/post_processing.vs").c_str(), FileSystem::getPath("shaders/post_processing.fs").c_str(), nullptr, "postprocessing");
         // configure shaders
         glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(this->Width), static_cast<float>(this->Height), 0.0f, -1.0f, 1.0f);
         ResourceManager::getShader("sprite").use().setInt("sprite", 0);
         ResourceManager::getShader("sprite").setMat4("projection", projection);
-        // ResourceManager::getShader("particle").use().setInt("sprite", 0);
-        // ResourceManager::getShader("particle").setMat4("projection", projection);
+        ResourceManager::getShader("particle").use().setInt("sprite", 0);
+        ResourceManager::getShader("particle").setMat4("projection", projection);
         // load textures
         ResourceManager::loadTexture(FileSystem::getPath("resources/textures/background.jpg").c_str(), false, "background");
         ResourceManager::loadTexture(FileSystem::getPath("resources/textures/awesomeface.png").c_str(), true, "face");
@@ -224,8 +225,8 @@ public:
         ResourceManager::loadTexture(FileSystem::getPath("resources/textures/powerup_passthrough.png").c_str(), true, "powerup_passthrough");
         // set render-specific controls
         Renderer = new SpriteRenderer(ResourceManager::getShader("sprite"));
-        // Particles = new ParticleGenerator(ResourceManager::getShader("particle"), ResourceManager::getTexture("particle"), 500);
-        // Effects = new PostProcessor(ResourceManager::getShader("postprocessing"), this->Width, this->Height);
+        Particles = new ParticleGenerator(ResourceManager::getShader("particle"), ResourceManager::getTexture("particle"), 200);
+        Effects = new PostProcessor(ResourceManager::getShader("postprocessing"), this->Width, this->Height);
         // Text = new TextRenderer(this->Width, this->Height);
         // Text->Load(FileSystem::getPath("resources/fonts/OCRAEXT.TTF").c_str(), 24);
         // load levels
@@ -238,11 +239,11 @@ public:
         this->Levels.push_back(three);
         this->Levels.push_back(four);
         this->Level = 0;
-        // // configure game objects
-        // glm::vec2 playerPos = glm::vec2(this->Width / 2.0f - PLAYER_SIZE.x / 2.0f, this->Height - PLAYER_SIZE.y);
-        // Player = new GameObject(playerPos, PLAYER_SIZE, ResourceManager::getTexture("paddle"));
-        // glm::vec2 ballPos = playerPos + glm::vec2(PLAYER_SIZE.x / 2.0f - BALL_RADIUS, -BALL_RADIUS * 2.0f);
-        // Ball = new BallObject(ballPos, BALL_RADIUS, INITIAL_BALL_VELOCITY, ResourceManager::getTexture("face"));
+        // configure game objects
+        glm::vec2 playerPos = glm::vec2(this->Width / 2.0f - PLAYER_SIZE.x / 2.0f, this->Height - PLAYER_SIZE.y);
+        Player = new GameObject(playerPos, PLAYER_SIZE, ResourceManager::getTexture("paddle"));
+        glm::vec2 ballPos = playerPos + glm::vec2(PLAYER_SIZE.x / 2.0f - BALL_RADIUS, -BALL_RADIUS * 2.0f);
+        Ball = new BallObject(ballPos, BALL_RADIUS, INITIAL_BALL_VELOCITY, ResourceManager::getTexture("face"));
         // // audio
         // SoundEngine->play2D(FileSystem::getPath("resources/audio/breakout.mp3").c_str(), true);
     }
@@ -314,8 +315,8 @@ public:
         this->DoCollisions();
         // update particles
         Particles->Update(dt, *Ball, 2, glm::vec2(Ball->Radius / 2.0f));
-        // update PowerUps
-        this->UpdatePowerUps(dt);
+        // // update PowerUps
+        // this->UpdatePowerUps(dt);
         // reduce shake time
         if (ShakeTime > 0.0f)
         {
@@ -326,23 +327,23 @@ public:
         // check loss condition
         if (Ball->Position.y >= this->Height) // did ball reach bottom edge?
         {
-            --this->Lives;
-            // did the player lose all his lives? : game over
-            if (this->Lives == 0)
-            {
+            // --this->Lives;
+            // // did the player lose all his lives? : game over
+            // if (this->Lives == 0)
+            // {
                 this->ResetLevel();
-                this->State = GAME_MENU;
-            }
+            //     this->State = GAME_MENU;
+            // }
             this->ResetPlayer();
         }
-        // check win condition
-        if (this->State == GAME_ACTIVE && this->Levels[this->Level].IsCompleted())
-        {
-            this->ResetLevel();
-            this->ResetPlayer();
-            Effects->Chaos = true;
-            this->State = GAME_WIN;
-        }
+        // // check win condition
+        // if (this->State == GAME_ACTIVE && this->Levels[this->Level].IsCompleted())
+        // {
+        //     this->ResetLevel();
+        //     this->ResetPlayer();
+        //     Effects->Chaos = true;
+        //     this->State = GAME_WIN;
+        // }
     }
     void Render()
     {
@@ -350,27 +351,27 @@ public:
 
         if (this->State == GAME_ACTIVE || this->State == GAME_MENU || this->State == GAME_WIN)
         {
-            // // begin rendering to postprocessing framebuffer
-            // Effects->BeginRender();
+            // begin rendering to postprocessing framebuffer
+            Effects->BeginRender();
             // draw background
             Renderer->DrawSprite(ResourceManager::getTexture("background"), glm::vec2(0.0f, 0.0f), glm::vec2(this->Width, this->Height), 0.0f);
             // Renderer->DrawSprite(ResourceManager::getTexture("face"), glm::vec2(200.0f, 200.0f), glm::vec2(300, 400), 0.0f);
             // draw level
             this->Levels[this->Level].Draw(*Renderer);
-            // // draw player
-            // Player->Draw(*Renderer);
+            // draw player
+            Player->Draw(*Renderer);
             // // draw PowerUps
             // for (PowerUp &powerUp : this->PowerUps)
             //     if (!powerUp.Destroyed)
             //         powerUp.Draw(*Renderer);
-            // // draw particles	
-            // Particles->Draw();
-            // // draw ball
-            // Ball->Draw(*Renderer);            
-            // // end rendering to postprocessing framebuffer
-            // Effects->EndRender();
-            // // render postprocessing quad
-            // Effects->Render(glfwGetTime());
+            // draw particles	
+            Particles->Draw();
+            // draw ball
+            Ball->Draw(*Renderer);            
+            // end rendering to postprocessing framebuffer
+            Effects->EndRender();
+            // render postprocessing quad
+            Effects->Render(glfwGetTime());
             // // render text (don't include in postprocessing)
             // std::stringstream ss; ss << this->Lives;
             // Text->RenderText("Lives:" + ss.str(), 5.0f, 5.0f, 1.0f);
@@ -399,20 +400,21 @@ public:
                     if (!box.IsSolid)
                     {
                         box.Destroyed = true;
-                        this->SpawnPowerUps(box);
-                        SoundEngine->play2D(FileSystem::getPath("resources/audio/bleep.mp3").c_str(), false);
+                        // this->SpawnPowerUps(box);
+                        // SoundEngine->play2D(FileSystem::getPath("resources/audio/bleep.mp3").c_str(), false);
                     }
                     else
-                    {   // if block is solid, enable shake effect
+                    {   
+                        // if block is solid, enable shake effect
                         ShakeTime = 0.05f;
                         Effects->Shake = true;
-                        SoundEngine->play2D(FileSystem::getPath("resources/audio/bleep.mp3").c_str(), false);
+                        // SoundEngine->play2D(FileSystem::getPath("resources/audio/bleep.mp3").c_str(), false);
                     }
                     // collision resolution
                     Direction dir = std::get<1>(collision);
                     glm::vec2 diff_vector = std::get<2>(collision);
-                    if (!(Ball->PassThrough && !box.IsSolid)) // don't do collision resolution on non-solid bricks if pass-through is activated
-                    {
+                    // if (!(Ball->PassThrough && !box.IsSolid)) // don't do collision resolution on non-solid bricks if pass-through is activated
+                    // {
                         if (dir == LEFT || dir == RIGHT) // horizontal collision
                         {
                             Ball->Velocity.x = -Ball->Velocity.x; // reverse horizontal velocity
@@ -433,28 +435,28 @@ public:
                             else
                                 Ball->Position.y += penetration; // move ball back down
                         }
-                    }
+                    // }
                 }
             }
         }
         // also check collisions on PowerUps and if so, activate them
-        for (PowerUp &powerUp : this->PowerUps)
-        {
-            if (!powerUp.Destroyed)
-            {
-                // first check if powerup passed bottom edge, if so: keep as inactive and destroy
-                if (powerUp.Position.y >= this->Height)
-                    powerUp.Destroyed = true;
+        // for (PowerUp &powerUp : this->PowerUps)
+        // {
+        //     if (!powerUp.Destroyed)
+        //     {
+        //         // first check if powerup passed bottom edge, if so: keep as inactive and destroy
+        //         if (powerUp.Position.y >= this->Height)
+        //             powerUp.Destroyed = true;
 
-                if (CheckCollision(*Player, powerUp))
-                {	// collided with player, now activate powerup
-                    ActivatePowerUp(powerUp);
-                    powerUp.Destroyed = true;
-                    powerUp.Activated = true;
-                    SoundEngine->play2D(FileSystem::getPath("resources/audio/powerup.wav").c_str(), false);
-                }
-            }
-        }
+        //         if (CheckCollision(*Player, powerUp))
+        //         {	// collided with player, now activate powerup
+        //             ActivatePowerUp(powerUp);
+        //             powerUp.Destroyed = true;
+        //             powerUp.Activated = true;
+        //             SoundEngine->play2D(FileSystem::getPath("resources/audio/powerup.wav").c_str(), false);
+        //         }
+        //     }
+        // }
         // and finally check collisions for player pad (unless stuck)
         Collision result = CheckCollision(*Ball, *Player);
         if (!Ball->Stuck && std::get<0>(result))
@@ -467,22 +469,22 @@ public:
             float strength = 2.0f;
             glm::vec2 oldVelocity = Ball->Velocity;
             Ball->Velocity.x = INITIAL_BALL_VELOCITY.x * percentage * strength; 
-            //Ball->Velocity.y = -Ball->Velocity.y;
+            // Ball->Velocity.y = -Ball->Velocity.y;
             Ball->Velocity = glm::normalize(Ball->Velocity) * glm::length(oldVelocity); // keep speed consistent over both axes (multiply by length of old velocity, so total strength is not changed)
             // fix sticky paddle
             Ball->Velocity.y = -1.0f * abs(Ball->Velocity.y);
 
-            // if Sticky powerup is activated, also stick ball to paddle once new velocity vectors were calculated
-            Ball->Stuck = Ball->Sticky;
+            // // if Sticky powerup is activated, also stick ball to paddle once new velocity vectors were calculated
+            // Ball->Stuck = Ball->Sticky;
 
-            SoundEngine->play2D(FileSystem::getPath("resources/audio/bleep.wav").c_str(), false);
+            // SoundEngine->play2D(FileSystem::getPath("resources/audio/bleep.wav").c_str(), false);
         }
     }
     // reset
     void ResetLevel()
     {
         if (this->Level == 0)
-            this->Levels[0].Load("levels/one.lvl", this->Width, this->Height / 2);
+            this->Levels[0].Load(FileSystem::getPath("resources/levels/one.lvl").c_str(), this->Width, this->Height / 2);
         else if (this->Level == 1)
             this->Levels[1].Load("levels/two.lvl", this->Width, this->Height / 2);
         else if (this->Level == 2)
@@ -498,11 +500,11 @@ public:
         Player->Size = PLAYER_SIZE;
         Player->Position = glm::vec2(this->Width / 2.0f - PLAYER_SIZE.x / 2.0f, this->Height - PLAYER_SIZE.y);
         Ball->Reset(Player->Position + glm::vec2(PLAYER_SIZE.x / 2.0f - BALL_RADIUS, -(BALL_RADIUS * 2.0f)), INITIAL_BALL_VELOCITY);
-        // also disable all active powerups
-        Effects->Chaos = Effects->Confuse = false;
-        Ball->PassThrough = Ball->Sticky = false;
-        Player->Color = glm::vec3(1.0f);
-        Ball->Color = glm::vec3(1.0f);
+        // // also disable all active powerups
+        // Effects->Chaos = Effects->Confuse = false;
+        // Ball->PassThrough = Ball->Sticky = false;
+        // Player->Color = glm::vec3(1.0f);
+        // Ball->Color = glm::vec3(1.0f);
     }
     // powerups
     void SpawnPowerUps(GameObject &block)
