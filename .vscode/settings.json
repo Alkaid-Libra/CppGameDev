@@ -13,7 +13,8 @@
 
     "cmake.sourceDirectory": "/home/leiqin/Filemanager/StudyStuff/Games/CppGameDev/4.3_InPractice_2DGame",
     "files.associations": {
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "texture3d": "cpp"
     }
 
 }

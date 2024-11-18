@@ -57,6 +57,11 @@ configure_file(
 set(IRRKLANG_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/../external/irrKlang/include")
 set(IRRKLANG_LIBRARY_DIR "${CMAKE_SOURCE_DIR}/../external/irrKlang/lib")
 
+# 设置freetype库的路径
+set(FREETYPE_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../external/freetype/include/freetype2)
+set(FREETYPE_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/../external/freetype/lib)
+# 查找freetype库
+# find_package(Freetype REQUIRED)
 
 # 源文件
 set(GLAD_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/../external/glad/include)
@@ -102,6 +107,20 @@ target_link_libraries(main PRIVATE
     # ${MPG123_LIBRARIES}
     mpg123
     IrrKlang
+    # ${FREETYPE_LIBRARIES}
+    freetype
+)
+
+# 确保运行时找到 ikpMP3.so
+set_target_properties(main PROPERTIES 
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+
+# 将 ikpMP3.so 复制到运行时目录
+add_custom_command(TARGET main POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+            ${IRRKLANG_LIBRARY_DIR}/ikpMP3.so
+            $<TARGET_FILE_DIR:main>
 )
 
 # 如果有使用GLM，添加
@@ -114,4 +133,5 @@ target_include_directories(main PRIVATE
     ${GLFW_INCLUDE_DIRS}
     ${GLM_INCLUDE_DIRS}
     ${GLAD_INCLUDE}
+    ${FREETYPE_INCLUDE_DIRS}
 )
